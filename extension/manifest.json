@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "WalleeGuard",
   "version": "0.4.0",
-  "description": "WalleeGuard — prywatny rejestr promptów i reguły obserwowalności AI.",
+  "description": "WalleeGuard — lokalne blokowanie krytycznych promptów AI, prywatne logi i reguły dla ChatGPT, Claude oraz Gemini.",
   "permissions": [
     "storage",
     "alarms"
