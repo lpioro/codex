@@ -8,8 +8,9 @@ async function api(path, options = {}) {
 function node(tag, text, cls) { const el = document.createElement(tag); el.textContent = text; if(cls) el.className = cls; return el; }
 async function refresh() {
   try {
-    const params = new URLSearchParams({q: $('search').value, provider: $('provider').value, severity: $('severity').value});
-    const [events, rules] = await Promise.all([api('/api/events?' + params), api('/api/rules')]);
+    const params = new URLSearchParams({q: $('search').value, provider: $('provider').value, severity: $('severity').value, endpoint_id: $('endpoint-filter').value});
+    const [events, rules, endpoints] = await Promise.all([api('/api/events?' + params), api('/api/rules'), api('/api/endpoints')]);
+    renderEndpoints(endpoints);
     $('events').replaceChildren();
     $('total').textContent = events.length;
     $('flagged').textContent = events.filter(e => e.matches.length).length;
@@ -21,6 +22,7 @@ async function refresh() {
       const meta = node('div', '', 'd-flex flex-wrap gap-2 align-items-center');
       meta.append(node('small', event.provider + ' · ' + new Date(event.received_at).toLocaleString('pl-PL'), 'prompt-meta me-auto'));
       card.append(meta);
+      card.append(node('div', (event.endpoint_name || 'Nieprzypisany endpoint') + (event.endpoint_group ? ' · '+event.endpoint_group : '') + (event.endpoint_id ? ' · '+event.endpoint_id.slice(0,8) : ''), 'small text-body-secondary mt-2'));
       for (const match of event.matches) meta.append(node('span', match.severity + ' · ' + match.name, 'badge signal ' + match.severity));
       card.append(node('pre', event.prompt)); $('events').append(card);
     }
@@ -38,9 +40,9 @@ async function refresh() {
 }
 async function run(fn) { try { await fn(); } catch(e) { $('error').textContent = e.message; } }
 $('auth').onsubmit = e => {e.preventDefault(); token = $('token').value; run(async () => {await refresh(); $('token').value = ''; $('login').hidden = true; $('workspace').hidden = false; $('status').textContent = 'Połączono'; $('status').classList.add('connected');});};
-$('logout').onclick = () => {token=''; $('events').replaceChildren(); $('rules').replaceChildren(); $('workspace').hidden=true; $('login').hidden=false; fillRule({}); $('status').textContent='Rozłączono'; $('status').classList.remove('connected'); for (const id of ['total','flagged','rule-count']) $(id).textContent='0';};
+$('logout').onclick = () => {token=''; $('events').replaceChildren(); $('rules').replaceChildren(); $('workspace').hidden=true; $('login').hidden=false; fillRule({}); hideEndpointToken(); resetEndpointForm(); $('endpoints').replaceChildren(); $('endpoint-filter').replaceChildren(new Option('Wszystkie endpointy',''),new Option('Nieprzypisane / starsze wersje','legacy')); $('status').textContent='Rozłączono'; $('status').classList.remove('connected'); for (const id of ['total','flagged','rule-count']) $(id).textContent='0';};
 $('refresh').onclick = () => run(refresh);
-for (const id of ['search','provider','severity']) $(id).onchange = () => run(refresh);
+for (const id of ['search','provider','severity','endpoint-filter']) $(id).onchange = () => run(refresh);
 
 const help = {
   contains: 'Dosłowny fragment tekstu bez rozróżniania wielkości liter.',
@@ -91,3 +93,56 @@ $('rule').onsubmit = e => {
   });
 };
 fillRule({});
+
+
+function hideEndpointToken() {
+  $('endpoint-token').value = '';
+  $('endpoint-secret').hidden = true;
+  $('endpoint-pairing').textContent = '';
+}
+function showEndpointToken(result) {
+  $('endpoint-token').value = result.token;
+  $('endpoint-pairing').textContent = 'ID endpointu: '+result.id+'. Rotacja tokena rozłącza poprzednią instalację.';
+  $('endpoint-secret').hidden = false;
+}
+function resetEndpointForm() {
+  $('endpoint-form').reset(); $('endpoint-edit-id').value=''; $('save-endpoint').textContent='Dodaj';
+}
+function renderEndpoints(endpoints) {
+  const selected = $('endpoint-filter').value;
+  $('endpoint-filter').replaceChildren(new Option('Wszystkie endpointy',''),new Option('Nieprzypisane / starsze wersje','legacy'));
+  $('endpoints').replaceChildren();
+  if (!endpoints.length) $('endpoints').append(node('p','Brak endpointów. Dodaj pierwszą instalację, aby otrzymać jej token.','small text-body-secondary'));
+  for (const endpoint of endpoints) {
+    $('endpoint-filter').append(new Option(endpoint.name + (endpoint.group_name ? ' · '+endpoint.group_name : ''),endpoint.id));
+    const row = node('div','','border-top py-3');
+    const recent = endpoint.last_seen && Date.now()-Date.parse(endpoint.last_seen)<180000;
+    const state = endpoint.revoked ? 'Dostęp cofnięty' : !endpoint.instance_id ? 'Oczekuje na sparowanie' : recent ? 'Ostatnio widziany' : 'Brak świeżego kontaktu';
+    row.append(node('strong',endpoint.name),node('span',' · '+(endpoint.group_name || 'Bez grupy')+' · '+state,'small text-body-secondary'));
+    row.append(node('div','ID: '+endpoint.id+' · Logi: '+endpoint.event_count+' · Wersja: '+(endpoint.version || '—'),'small text-body-secondary text-break'));
+    row.append(node('div','Kontakt: '+(endpoint.last_seen ? new Date(endpoint.last_seen).toLocaleString('pl-PL') : 'jeszcze brak'),'small text-body-secondary'));
+    const controls = node('div','','d-flex gap-2 flex-wrap mt-2');
+    const edit = node('button','Edytuj','btn btn-sm btn-outline-secondary');
+    edit.onclick=()=>{$('endpoint-edit-id').value=endpoint.id; $('endpoint-name').value=endpoint.name; $('endpoint-group').value=endpoint.group_name; $('save-endpoint').textContent='Zapisz';};
+    const rotate = node('button','Nowy token / ponowne parowanie','btn btn-sm btn-outline-secondary');
+    rotate.onclick=()=>run(async()=>{hideEndpointToken(); const result=await api('/api/endpoints/'+endpoint.id+'/rotate',{method:'POST',body:'{}'}); showEndpointToken(result); await refresh();});
+    const revoke = node('button','Cofnij dostęp','btn btn-sm btn-outline-danger'); revoke.disabled=!!endpoint.revoked;
+    revoke.onclick=()=>run(async()=>{await api('/api/endpoints/'+endpoint.id+'/revoke',{method:'POST',body:'{}'}); hideEndpointToken(); await refresh();});
+    controls.append(edit,rotate,revoke); row.append(controls); $('endpoints').append(row);
+  }
+  $('endpoint-filter').value=selected;
+}
+$('endpoint-form').onsubmit=e=>{
+  e.preventDefault();
+  run(async()=>{
+    hideEndpointToken();
+    const id=$('endpoint-edit-id').value;
+    const result=await api('/api/endpoints'+(id ? '/'+id : ''),{method:'POST',body:JSON.stringify({name:$('endpoint-name').value,group_name:$('endpoint-group').value})});
+    resetEndpointForm();
+    if (result.token) showEndpointToken(result);
+    await refresh();
+  });
+};
+$('reset-endpoint').onclick=resetEndpointForm;
+$('hide-endpoint-token').onclick=hideEndpointToken;
+$('copy-endpoint-token').onclick=()=>run(async()=>{await navigator.clipboard.writeText($('endpoint-token').value); $('endpoint-pairing').textContent='Token skopiowany. Wklej go w ustawieniach jednej wtyczki.';});

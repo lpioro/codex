@@ -29,10 +29,19 @@
 <div class="col-6 col-md-4"><div class="card stat-card h-100"><div class="card-body"><p class="text-body-secondary small mb-2">Z DOPASOWANIEM REGUŁY</p><strong id="flagged" class="display-6 brand-accent">0</strong></div></div></div>
 <div class="col-6 col-md-4"><div class="card stat-card h-100"><div class="card-body"><p class="text-body-secondary small mb-2">AKTYWNE REGUŁY</p><strong id="rule-count" class="display-6">0</strong></div></div></div>
 </div>
+<details class="card mb-4"><summary class="card-header p-3">Endpointy — instalacje wtyczki</summary><div class="card-body">
+<p class="small text-body-secondary">Jeden endpoint i osobny token dla każdego profilu Chrome. Token administratora służy tylko do dashboardu.</p>
+<form id="endpoint-form" class="row g-2 align-items-end"><input id="endpoint-edit-id" type="hidden">
+<div class="col-md-5"><label for="endpoint-name" class="form-label small">Nazwa urządzenia / profilu</label><input id="endpoint-name" class="form-control" required maxlength="100" placeholder="np. Laptop Anny — Chrome"></div>
+<div class="col-md-4"><label for="endpoint-group" class="form-label small">Grupa / zespół (opcjonalnie)</label><input id="endpoint-group" class="form-control" maxlength="100" placeholder="np. Finanse"></div>
+<div class="col-md-3 d-flex gap-2"><button id="save-endpoint" class="btn btn-primary">Dodaj</button><button id="reset-endpoint" type="button" class="btn btn-outline-secondary">Anuluj</button></div></form>
+<div id="endpoint-secret" class="alert alert-warning mt-3" hidden><label for="endpoint-token" class="form-label">Token wyświetlany tylko teraz — wpisz go w jednej instalacji wtyczki.</label><input id="endpoint-token" type="password" class="form-control" readonly autocomplete="off"><div class="mt-2 d-flex gap-2"><button id="copy-endpoint-token" class="btn btn-sm btn-primary">Kopiuj token</button><button id="hide-endpoint-token" class="btn btn-sm btn-outline-secondary">Ukryj i usuń z widoku</button></div><p id="endpoint-pairing" class="small mt-2 mb-0"></p></div>
+<div id="endpoints" class="mt-3"></div></div></details>
 <div class="row g-4">
 <div class="col-12 col-lg-8">
 <div class="card mb-3"><div class="card-body"><div class="row g-2">
 <div class="col-12"><label for="search" class="form-label small">Szukaj promptu</label><input id="search" class="form-control" placeholder="Wpisz fragment i naciśnij Enter…"></div>
+<div class="col-12"><label for="endpoint-filter" class="form-label small">Endpoint / instalacja</label><select id="endpoint-filter" class="form-select"><option value="">Wszystkie endpointy</option><option value="legacy">Nieprzypisane / starsze wersje</option></select></div>
 <div class="col-sm-6"><label for="provider" class="form-label small">Dostawca</label><select id="provider" class="form-select"><option value="">Wszyscy dostawcy</option><option>chatgpt</option><option>claude</option><option>gemini</option></select></div>
 <div class="col-sm-6"><label for="severity" class="form-label small">Poziom sygnału</label><select id="severity" class="form-select"><option value="">Wszystkie poziomy</option><option>info</option><option>warning</option><option>critical</option></select></div>
 </div></div></div>

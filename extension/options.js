@@ -1,9 +1,10 @@
 const $ = id => document.getElementById(id);
 async function load() {
-  const s = await chrome.storage.local.get(['endpoint','token','enabled','queue','lastError','lastSuccess']);
+  const s = await chrome.storage.local.get(['endpoint','token','enabled','queue','lastError','lastSuccess','instanceId','deviceId','deviceName','deviceGroup']);
   $('endpoint').value = s.endpoint || '';
   $('token').value = s.token || '';
   $('enabled').checked = !!s.enabled;
+  $('identity').textContent = s.deviceId ? (s.deviceName + (s.deviceGroup ? ' · '+s.deviceGroup : '') + ' · ID: '+s.deviceId+' · Instalacja: '+s.instanceId) : 'Jeszcze nie sparowano. Utwórz endpoint w dashboardzie i wpisz jego token.';
   $('status').textContent = 'Oczekujące: '+(s.queue || []).length+'. Ostatni zapis: '+(s.lastSuccess || 'brak')+'. '+(s.lastError || '');
 }
 $('settings').onsubmit = async e => {
@@ -15,11 +16,11 @@ $('settings').onsubmit = async e => {
     if ($('token').value.length < 32) throw Error('Token musi mieć co najmniej 32 znaki.');
     const granted = await chrome.permissions.request({origins:[url.origin+'/*']});
     if (!granted) throw Error('Nie przyznano dostępu do serwera.');
-    const previous = await chrome.storage.local.get(['endpoint','queue']);
-    if (previous.endpoint && previous.endpoint !== url.origin && previous.queue?.length) throw Error('Przed zmianą serwera usuń oczekujące prompty.');
-    await chrome.storage.local.set({endpoint:url.origin,token:$('token').value,enabled:$('enabled').checked});
-    $('status').textContent = 'Zapisano. Przechwytywanie: '+($('enabled').checked ? 'włączone' : 'wyłączone');
+    const response = await chrome.runtime.sendMessage({type:'configure',config:{endpoint:url.origin,token:$('token').value,enabled:$('enabled').checked}});
+    if (!response.ok) throw Error(response.error);
+    await load();
+    $('status').textContent = 'Sparowano: '+response.result.name+'. Przechwytywanie: '+($('enabled').checked ? 'włączone' : 'wyłączone');
   } catch(e) { $('status').textContent = e.message; }
 };
-$('clear').onclick = async () => { await chrome.storage.local.set({queue:[]}); await load(); };
+$('clear').onclick = async () => { await chrome.runtime.sendMessage({type:'clearQueue'}); await load(); };
 load();

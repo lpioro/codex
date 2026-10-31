@@ -32,6 +32,8 @@ jobs:
           node --check extension/content.js
           node --check extension/options.js
           node --check server/static/app.js
+      - name: Test extension queue and installation identity
+        run: node tests/extension_background.test.cjs
       - name: Package extension
         env:
           REF_TYPE: ${{ github.ref_type }}

@@ -28,14 +28,21 @@ def create_demo(output):
                 rule = validate_rule(data)
                 db.execute('INSERT INTO rules(name,contains,severity,type,enabled) VALUES (?,?,?,?,?)',
                            tuple(rule[k] for k in ('name','contains','severity','type','enabled')))
+        endpoints = {}
+        for provider, name, group in [('chatgpt','DEMO · Laptop Anny','Finanse'),('claude','DEMO · Stacja Piotra','Inżynieria'),('gemini','DEMO · Profil testowy','QA')]:
+            created = app.create_endpoint({'name':name,'group_name':group})
+            endpoints[provider] = created['id']
+            with app.connect() as db:
+                db.execute('UPDATE endpoints SET instance_id=?,version=? WHERE id=?', ('demo-'+provider,'demo',created['id']))
         now = datetime.now(timezone.utc).replace(microsecond=0)
         for index, event in enumerate(fixture['events']):
-            result = app.ingest(event)
+            endpoint_id = endpoints[event['provider']]
+            result = app.ingest(event, endpoint_id)
             if sorted(m['name'] for m in result['matches']) != sorted(event['expected']):
                 raise ValueError(f"Unexpected detector result: {event['id']}")
             with app.connect() as db:
                 stamp = now - timedelta(minutes=30 * (len(fixture['events']) - 1 - index))
-                db.execute('UPDATE events SET received_at=? WHERE id=?', (stamp.isoformat(), event['id']))
+                db.execute('UPDATE events SET received_at=? WHERE id=?', (stamp.isoformat(), endpoint_id+':'+event['id']))
         # SQLite backup includes committed WAL data in a portable standalone file.
         source = sqlite3.connect(app.DB)
         destination = sqlite3.connect(output)
@@ -45,7 +52,7 @@ def create_demo(output):
         finally:
             source.close()
             destination.close()
-        return {'rules':len(fixture['rules']), 'events':len(fixture['events']), 'database':str(output)}
+        return {'rules':len(fixture['rules']), 'events':len(fixture['events']), 'endpoints':len(endpoints), 'database':str(output)}
     except BaseException:
         output.unlink(missing_ok=True)
         raise

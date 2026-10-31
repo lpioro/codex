@@ -56,15 +56,16 @@ docker compose down
 docker compose up -d
 ```
 
-Nie używaj down -v, jeśli chcesz zachować dane — usuwa wolumen bazy. Plik .env jest ignorowany przez Git i wyłączony z kontekstu budowania. Końcowy obraz zawiera tylko serwer; etap testowy korzysta również ze źródeł wtyczki i skryptu pakowania. Nie dodawaj tokenów do obrazu ani repozytorium. Zmiana PROMPT_TOKEN w .env wymaga odtworzenia kontenera przez docker compose up -d i aktualizacji wtyczki. Wersje bazowe są wskazane tagami; przed docelowym wdrożeniem można przypiąć je dodatkowo do digestów z własnego rejestru.
+Nie używaj down -v, jeśli chcesz zachować dane — usuwa wolumen bazy. Plik .env jest ignorowany przez Git i wyłączony z kontekstu budowania. Końcowy obraz zawiera tylko serwer; etap testowy korzysta również ze źródeł wtyczki i skryptu pakowania. Nie dodawaj tokenów do obrazu ani repozytorium. Zmiana PROMPT_TOKEN w .env wymaga odtworzenia kontenera przez docker compose up -d i ponownego logowania w dashboardzie. Dedykowane tokeny wtyczek pozostają ważne. Wersje bazowe są wskazane tagami; przed docelowym wdrożeniem można przypiąć je dodatkowo do digestów z własnego rejestru.
 
 ## Wtyczka
 
 1. Otwórz chrome://extensions, włącz tryb dewelopera i wybierz „Załaduj rozpakowane”.
 2. Wskaż katalog extension.
-3. Kliknij ikonę rozszerzenia. Wprowadź adres kolektora (HTTPS lub lokalny HTTP), ten sam token i świadomie włącz przechwytywanie.
-4. Zaakceptuj dostęp do wskazanego serwera. Odśwież istniejące karty dostawców.
-5. Wyślij prompt w ChatGPT, Claude lub Gemini i odśwież dashboard.
+3. Zaloguj się do dashboardu tokenem administratora PROMPT_TOKEN. Rozwiń Endpointy, dodaj nazwę urządzenia/profilu i opcjonalną grupę. Skopiuj jednorazowo wyświetlony token endpointu.
+4. Kliknij ikonę rozszerzenia. Wprowadź adres kolektora (HTTPS lub lokalny HTTP), dedykowany token endpointu i świadomie włącz przechwytywanie. Nie wpisuj tokena administratora.
+5. Zaakceptuj dostęp do wskazanego serwera. Odśwież istniejące karty dostawców.
+6. Wyślij prompt w ChatGPT, Claude lub Gemini i odśwież dashboard.
 
 Przechwytywane są próby wysłania promptu klawiszem Enter lub rozpoznanym przyciskiem wysyłania. To nie potwierdza przyjęcia promptu przez dostawcę. Nie są zbierane odpowiedzi, pliki, historia czatu ani adres rozmowy. Selektory stron mogą wymagać aktualizacji po zmianach interfejsu dostawców. Wysyłanie przyciskiem zależy od jego etykiety i języka interfejsu. Przeglądarka Chrome i rzeczywiste strony dostawców wymagają osobnej ręcznej weryfikacji.
 
@@ -106,9 +107,9 @@ ingress:
   - service: http_status:404
 ```
 
-Powiąż domenę z tunelem w Cloudflare i uruchom cloudflared jako usługę. Adres HTTPS domeny wpisz we wtyczce. Token API zabezpiecza odczyt i zapis; /health jest publiczne. Dodatkowa interaktywna bramka Cloudflare Access będzie wymagać osobnej integracji z wtyczką — obecna wersja nie obsługuje logowania Access ani jego service tokens.
+Powiąż domenę z tunelem w Cloudflare i uruchom cloudflared jako usługę. Adres HTTPS domeny wpisz we wtyczce. Token administratora zabezpiecza odczyt i zarządzanie; osobne tokeny endpointów uprawniają tylko do wysyłania zdarzeń i heartbeatów; /health jest publiczne. Dodatkowa interaktywna bramka Cloudflare Access będzie wymagać osobnej integracji z wtyczką — obecna wersja nie obsługuje logowania Access ani jego service tokens.
 
-Tunel zapewnia transport HTTPS do Cloudflare, ale treść promptów przechodzi przez jego infrastrukturę. Token rozszerzenia jest zapisany w chrome.storage.local, bez synchronizacji, bez szyfrowania przez aplikację. Baza zawiera pełną treść promptów. Kontroluj dostęp do profilu Chrome, plików bazy i kopii zapasowych. Rotacja tokena wymaga aktualizacji serwera i wtyczki.
+Tunel zapewnia transport HTTPS do Cloudflare, ale treść promptów przechodzi przez jego infrastrukturę. Token rozszerzenia jest zapisany w chrome.storage.local, bez synchronizacji, bez szyfrowania przez aplikację. Baza zawiera pełną treść promptów. Kontroluj dostęp do profilu Chrome, plików bazy i kopii zapasowych. Rotacja tokena endpointu odbywa się w dashboardzie i wymaga wpisania nowego tokena tylko w danej wtyczce.
 
 ## Reguły i zakres
 
@@ -118,19 +119,19 @@ Detektor e-mail wykrywa typowe adresy ASCII z domeną zawierającą kropkę, a n
 
 Przy uruchomieniu serwer automatycznie dodaje kolumny typu i stanu do starej bazy; istniejące reguły pozostają aktywnymi regułami tekstowymi. Zrób kopię bazy przed aktualizacją. Wynik jest utrwalany przy zapisie — zmiana lub usunięcie reguły nie zmienia historii. Dashboard filtruje ostatnie 1000 zdarzeń po tekście, dostawcy i poziomie. Odświeżanie jest ręczne.
 
-To wersja dla jednego użytkownika i niewielkiego ruchu. Nie obejmuje retencji, wieloużytkownikowości, alertów zewnętrznych, redakcji danych ani metryk odpowiedzi/tokenów. Standardowy serwer HTTP Pythona jest prostym kolektorem za tunelem; przed wdrożeniem dla wielu użytkowników potrzebne są utwardzenie, limity ruchu i zarządzanie tożsamościami. Kopię SQLite wykonuj przez mechanizm backup SQLite, uwzględniając tryb WAL.
+To wersja dla jednego administratora, wielu instalacji wtyczki i niewielkiego ruchu. Nie obejmuje retencji, osobnych kont i uprawnień użytkowników, alertów zewnętrznych, redakcji danych ani metryk odpowiedzi/tokenów. Standardowy serwer HTTP Pythona jest prostym kolektorem za tunelem; przed wdrożeniem dla wielu użytkowników potrzebne są utwardzenie, limity ruchu i zarządzanie tożsamościami. Kopię SQLite wykonuj przez mechanizm backup SQLite, uwzględniając tryb WAL.
 
 Cloudflare, LXC i przechwytywanie na żywych stronach nie są zweryfikowane przez testy API.
 
 ## Paczki i GitHub Releases
 
-Workflow `.github/workflows/packages.yml` sprawdza API, JavaScript, paczkę wtyczki i działanie Compose. Pull requesty budują obraz bez publikacji. Push na main publikuje obraz `ghcr.io/lpioro/codex:edge` i tag powiązany z SHA. Tag wydania np. `v0.2.0` publikuje `ghcr.io/lpioro/codex:0.2.0` oraz `latest` dla stabilnej wersji, a następnie tworzy GitHub Release z ZIP-em wtyczki, sumą SHA-256, compose.yaml, .env.example i README. Obecny obraz jest budowany dla linux/amd64.
+Workflow `.github/workflows/packages.yml` sprawdza API, JavaScript, paczkę wtyczki i działanie Compose. Pull requesty budują obraz bez publikacji. Push na main publikuje obraz `ghcr.io/lpioro/codex:edge` i tag powiązany z SHA. Tag wydania np. `v0.3.0` publikuje `ghcr.io/lpioro/codex:0.3.0` oraz `latest` dla stabilnej wersji, a następnie tworzy GitHub Release z ZIP-em wtyczki, sumą SHA-256, compose.yaml, .env.example i README. Obecny obraz jest budowany dla linux/amd64.
 
 Workflow używa wbudowanego GITHUB_TOKEN; nie wymaga dodawania PAT. GitHub Actions musi być włączone, a polityka organizacji musi zezwalać na publikację pakietów. Widoczność pakietu GHCR ustaw w jego ustawieniach: dla pobierania bez logowania musi być publiczny. Przy prywatnym pakiecie odbiorca musi wykonać docker login ghcr.io z uprawnieniem odczytu pakietu. Pierwszy push konfiguracji nie potwierdza jeszcze, że workflow zakończył się sukcesem.
 
 ### Instalacja gotowej wersji bez budowania
 
-Pobierz compose.yaml i .env.example z wybranego GitHub Release do jednego katalogu. Skopiuj .env.example do .env, zabezpiecz go prawami 600, ustaw własny PROMPT_TOKEN i dodaj `PROMPT_IMAGE=ghcr.io/lpioro/codex:0.2.0` (podstaw rzeczywistą opublikowaną wersję). Potem:
+Pobierz compose.yaml i .env.example z wybranego GitHub Release do jednego katalogu. Skopiuj .env.example do .env, zabezpiecz go prawami 600, ustaw własny PROMPT_TOKEN i dodaj `PROMPT_IMAGE=ghcr.io/lpioro/codex:0.3.0` (podstaw rzeczywistą opublikowaną wersję). Potem:
 
 ```bash
 docker compose pull observatory
@@ -147,10 +148,10 @@ ZIP wtyczki rozpakuj do osobnego katalogu. W chrome://extensions wybierz tryb de
 Zaktualizuj version w extension/manifest.json, zatwierdź zmiany i sprawdź workflow. Tag musi zgadzać się z wersją manifestu:
 
 ```bash
-python3 scripts/package_extension.py --version 0.2.0
+python3 scripts/package_extension.py --version 0.3.0
 # Dopiero gdy chcesz opublikować tę wersję:
-git tag v0.2.0
-git push origin v0.2.0
+git tag v0.3.0
+git push origin v0.3.0
 ```
 
 Lokalna paczka i suma kontrolna powstają w ignorowanym katalogu dist. W ZIP-ie znajduje się manifest i cztery jawnie wskazane pliki wtyczki; baza i sekrety nie są dołączane. Zawartość archiwum jest powtarzalna dla tych samych źródeł. W razie błędu wersji publikacja zatrzymuje się przed wysłaniem obrazu i utworzeniem Release. Status publikacji sprawdzaj w zakładce Actions repozytorium; sam tag nie dowodzi gotowości paczek.
@@ -163,7 +164,7 @@ python3 -m server.demo
 PROMPT_DB=data/walleeguard-demo.sqlite3 python3 -m server.app
 ```
 
-Tworzy osobny plik data/walleeguard-demo.sqlite3: **8 reguł (7 aktywnych) i 16 promptów** z trzech dostawców, z datami z ostatnich 8 godzin. Przykłady obejmują e-mail, PESEL, poufny dokument, dane logowania, próbę nadpisania instrukcji, SQL, umowę i wyłączoną regułę telefonu. Są również prompty bez alarmu, numery z błędną sumą kontrolną i zdarzenia z wieloma dopasowaniami. Reguła instrukcji jest prostym dopasowaniem tekstu, a nie kompletną detekcją prompt injection.
+Tworzy osobny plik data/walleeguard-demo.sqlite3: **3 endpointy, 8 reguł (7 aktywnych) i 16 promptów** z trzech dostawców, z datami z ostatnich 8 godzin. Przykłady obejmują e-mail, PESEL, poufny dokument, dane logowania, próbę nadpisania instrukcji, SQL, umowę i wyłączoną regułę telefonu. Są również prompty bez alarmu, numery z błędną sumą kontrolną i zdarzenia z wieloma dopasowaniami. Reguła instrukcji jest prostym dopasowaniem tekstu, a nie kompletną detekcją prompt injection.
 
 Wszystkie treści mają znacznik [DEMO], adresy używają domen example.com/example.org, a dane logowania są fikcyjne. Poprawny numer PESEL jest syntetycznym przykładem walidacji — nie ma gwarancji, że nie został komuś nadany. Nie łącz tych treści z rzeczywistą tożsamością.
 
@@ -180,3 +181,31 @@ docker compose -p walleeguard-demo -f compose.demo.yaml down
 ```
 
 Wymaga Compose 2.24.4+ (tag !override). Demo używa osobnego wolumenu demo-prompts i portu 8788, więc może działać równolegle z właściwą aplikacją. DEMO_PORT pozwala zmienić port. Przy pierwszym starcie baza jest tworzona automatycznie; restarty zachowują zmiany reguł i nowe zdarzenia. Usunięcie danych demo wymaga świadomego użycia down -v z tym samym projektem i plikiem. Aby po pobraniu gotowego obrazu uruchomić demo bez budowania, ustaw PROMPT_IMAGE i użyj up -d --no-build.
+
+## Wiele instalacji wtyczki (od 0.3.0)
+
+Każdy profil Chrome jest osobnym endpointem, z nazwą, grupą, identyfikatorem UUID i własnym tokenem. Ten sam kolektor obsługuje wiele endpointów. Rozszerzenie generuje lokalny UUID instalacji w chrome.storage.local (bez synchronizacji i fingerprintingu); pierwsze połączenie paruje go z tokenem. Użycie tego samego tokena przez inny profil jest odrzucane. Nowa instalacja lub profil wymaga nowego endpointu albo rotacji tokena.
+
+Dashboard pokazuje endpoint i grupę przy każdym zdarzeniu, filtr po endpointach, wersję wtyczki, liczbę logów oraz ostatni kontakt. Nazwy i grupy historycznych logów odzwierciedlają aktualne etykiety endpointu. Heartbeat jest wysyłany co około minutę, także przy wyłączonym przechwytywaniu. „Ostatnio widziany” oznacza kontakt w ciągu ostatnich trzech minut, a nie potwierdzenie działania Chrome, włączonego przechwytywania czy stałego połączenia. Przeglądarka może opóźniać alarmy w tle.
+
+Token endpointu:
+- jest widoczny tylko po utworzeniu lub rotacji; w bazie zapisany jest jego SHA-256;
+- umożliwia tylko POST /api/events i POST /api/heartbeat;
+- nie pozwala czytać logów, reguł ani listy endpointów lub zarządzać konfiguracją;
+- jest przypisywany do zdarzeń po stronie serwera, więc wtyczka nie może podać tożsamości innego endpointu;
+- może zostać cofnięty bez usuwania historii; rotacja unieważnia stary token i pozwala ponownie sparować profil.
+
+Zdarzenia z różnych endpointów mają osobne przestrzenie identyfikatorów, więc jednakowe identyfikatory klientów nie usuwają sobie wzajemnie logów. Reguły pozostają wspólne dla wszystkich endpointów; nie ma jeszcze odrębnych polityk grupowych ani odrębnych kont administratorów.
+
+### Aktualizacja starszych instalacji
+
+1. Wykonaj kopię bazy SQLite i zaktualizuj serwer.
+2. Migracja doda tabelę endpointów i kolumnę endpoint_id; stare logi pozostają jako Nieprzypisane / starsze wersje.
+3. Zainstaluj/przeładuj wtyczkę 0.3.0 i w dashboardzie utwórz osobny endpoint dla każdego profilu.
+4. Wyślij starą kolejkę przed aktualizacją albo usuń ją świadomie w ustawieniach. Zmiana tokena lub serwera z niepustą kolejką jest blokowana, aby nie przypisać dawnych logów do innego endpointu.
+5. Wpisz token endpointu we wtyczce i zapisz ustawienia. To wykonuje heartbeat oraz parowanie; w razie błędu nowa konfiguracja nie zastępuje działającej.
+6. Jeśli wcześniej udostępniałeś token administratora wtyczkom, po przeniesieniu ich na dedykowane tokeny zmień PROMPT_TOKEN na serwerze. Dla zgodności integracje używające tokena administratora nadal mogą wysyłać zdarzenia, ale trafiają one wyłącznie do logów nieprzypisanych.
+
+Nie da się odzyskać nazwy urządzenia ani przypisać starych logów automatycznie — wcześniej nie były zbierane takie dane. Cofnięcie dostępu blokuje kolejne żądania; lokalna kolejka pozostaje w profilu i może zostać usunięta w ustawieniach. Przy rotacji tokena z zaległymi promptami najpierw usuń starą kolejkę albo świadomie wyślij ją przed rotacją. Sparowanie identyfikuje profil, ale skopiowanie całego profilu wraz z tokenem i UUID nie stanowi odrębnej, uwierzytelnionej tożsamości urządzenia.
+
+Dodatkowy test rozszerzenia: node tests/extension_background.test.cjs. Sprawdza stabilność UUID, metadane zdarzeń, kolejkę offline i zabezpieczenie zmiany serwera/tokena; nie zastępuje ręcznej kontroli przechwytywania na stronach dostawców AI.
