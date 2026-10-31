@@ -1,7 +1,7 @@
 services:
   observatory:
     build: .
-    image: prompt-observatory:local
+    image: ${PROMPT_IMAGE:-prompt-observatory:local}
     restart: unless-stopped
     environment:
       PROMPT_TOKEN: ${PROMPT_TOKEN:?Set PROMPT_TOKEN in .env (at least 32 characters)}

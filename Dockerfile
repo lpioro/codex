@@ -2,6 +2,8 @@ FROM python:3.12-slim-bookworm AS test
 WORKDIR /app
 COPY server/ server/
 COPY tests/ tests/
+COPY scripts/package_extension.py scripts/package_extension.py
+COPY extension/ extension/
 RUN python -m unittest discover -s tests -v
 
 FROM python:3.12-slim-bookworm AS runtime

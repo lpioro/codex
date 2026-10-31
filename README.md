@@ -54,7 +54,7 @@ docker compose down
 docker compose up -d
 ```
 
-Nie używaj down -v, jeśli chcesz zachować dane — usuwa wolumen bazy. Plik .env jest ignorowany przez Git i wyłączony z kontekstu budowania. Dockerfile kopiuje tylko serwer i testy. Nie dodawaj tokenów do obrazu ani repozytorium. Zmiana PROMPT_TOKEN w .env wymaga odtworzenia kontenera przez docker compose up -d i aktualizacji wtyczki. Wersje bazowe są wskazane tagami; przed docelowym wdrożeniem można przypiąć je dodatkowo do digestów z własnego rejestru.
+Nie używaj down -v, jeśli chcesz zachować dane — usuwa wolumen bazy. Plik .env jest ignorowany przez Git i wyłączony z kontekstu budowania. Końcowy obraz zawiera tylko serwer; etap testowy korzysta również ze źródeł wtyczki i skryptu pakowania. Nie dodawaj tokenów do obrazu ani repozytorium. Zmiana PROMPT_TOKEN w .env wymaga odtworzenia kontenera przez docker compose up -d i aktualizacji wtyczki. Wersje bazowe są wskazane tagami; przed docelowym wdrożeniem można przypiąć je dodatkowo do digestów z własnego rejestru.
 
 ## Wtyczka
 
@@ -115,3 +115,36 @@ Reguły wyszukują dosłowny fragment tekstu bez rozróżniania wielkości liter
 To wersja dla jednego użytkownika i niewielkiego ruchu. Nie obejmuje retencji, wieloużytkownikowości, alertów zewnętrznych, redakcji danych ani metryk odpowiedzi/tokenów. Standardowy serwer HTTP Pythona jest prostym kolektorem za tunelem; przed wdrożeniem dla wielu użytkowników potrzebne są utwardzenie, limity ruchu i zarządzanie tożsamościami. Kopię SQLite wykonuj przez mechanizm backup SQLite, uwzględniając tryb WAL.
 
 Cloudflare, LXC i przechwytywanie na żywych stronach nie są zweryfikowane przez testy API.
+
+## Paczki i GitHub Releases
+
+Workflow `.github/workflows/packages.yml` sprawdza API, JavaScript, paczkę wtyczki i działanie Compose. Pull requesty budują obraz bez publikacji. Push na main publikuje obraz `ghcr.io/lpioro/codex:edge` i tag powiązany z SHA. Tag wydania np. `v0.1.0` publikuje `ghcr.io/lpioro/codex:0.1.0` oraz `latest` dla stabilnej wersji, a następnie tworzy GitHub Release z ZIP-em wtyczki, sumą SHA-256, compose.yaml, .env.example i README. Obecny obraz jest budowany dla linux/amd64.
+
+Workflow używa wbudowanego GITHUB_TOKEN; nie wymaga dodawania PAT. GitHub Actions musi być włączone, a polityka organizacji musi zezwalać na publikację pakietów. Widoczność pakietu GHCR ustaw w jego ustawieniach: dla pobierania bez logowania musi być publiczny. Przy prywatnym pakiecie odbiorca musi wykonać docker login ghcr.io z uprawnieniem odczytu pakietu. Pierwszy push konfiguracji nie potwierdza jeszcze, że workflow zakończył się sukcesem.
+
+### Instalacja gotowej wersji bez budowania
+
+Pobierz compose.yaml i .env.example z wybranego GitHub Release do jednego katalogu. Skopiuj .env.example do .env, zabezpiecz go prawami 600, ustaw własny PROMPT_TOKEN i dodaj `PROMPT_IMAGE=ghcr.io/lpioro/codex:0.1.0` (podstaw rzeczywistą opublikowaną wersję). Potem:
+
+```bash
+docker compose pull observatory
+docker compose up -d --no-build
+# Z opcjonalnym tunelem i skonfigurowanym TUNNEL_TOKEN:
+docker compose --profile tunnel pull
+docker compose --profile tunnel up -d --no-build
+```
+
+ZIP wtyczki rozpakuj do osobnego katalogu. W chrome://extensions wybierz tryb dewelopera i załaduj rozpakowany katalog zawierający manifest.json. ZIP nie instaluje się automatycznie i nie zapewnia aktualizacji z Chrome Web Store. Adres kolektora i token skonfiguruj w ustawieniach wtyczki.
+
+### Przygotowanie następnego wydania
+
+Zaktualizuj version w extension/manifest.json, zatwierdź zmiany i sprawdź workflow. Tag musi zgadzać się z wersją manifestu:
+
+```bash
+python3 scripts/package_extension.py --version 0.1.0
+# Dopiero gdy chcesz opublikować tę wersję:
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+Lokalna paczka i suma kontrolna powstają w ignorowanym katalogu dist. W ZIP-ie znajduje się manifest i cztery jawnie wskazane pliki wtyczki; baza i sekrety nie są dołączane. Zawartość archiwum jest powtarzalna dla tych samych źródeł. W razie błędu wersji publikacja zatrzymuje się przed wysłaniem obrazu i utworzeniem Release. Status publikacji sprawdzaj w zakładce Actions repozytorium; sam tag nie dowodzi gotowości paczek.

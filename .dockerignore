@@ -4,5 +4,9 @@
 !server/**
 !tests/
 !tests/**
+!scripts/
+!scripts/package_extension.py
+!extension/
+!extension/**
 **/__pycache__/
 **/*.pyc
