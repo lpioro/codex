@@ -58,6 +58,25 @@ class API(unittest.TestCase):
                 self.request('/api/events', payload)
             self.assertEqual(error.exception.code, 400)
 
+    def test_rule_builder(self):
+        rule = {'name':'E-mail', 'type':'email', 'severity':'warning', 'enabled':True}
+        with self.assertRaises(HTTPError) as error:
+            self.request('/api/rules/test', {**rule, 'text':'a@example.com'}, token=False)
+        self.assertEqual(error.exception.code, 401)
+        self.assertTrue(self.request('/api/rules/test', {**rule, 'text':'a@example.com'})['matched'])
+        self.assertEqual(self.request('/api/rules'), [])
+        rule_id = self.request('/api/rules', rule)['id']
+        try:
+            self.assertEqual(self.request('/api/events', {'id':'email-test', 'provider':'claude', 'prompt':'a@example.com'})['matches'][0]['type'], 'email')
+            self.request('/api/rules/' + str(rule_id), {**rule, 'enabled':False})
+            self.assertEqual(self.request('/api/events', {'id':'email-disabled', 'provider':'claude', 'prompt':'a@example.com'})['matches'], [])
+            self.assertFalse(self.request('/api/rules/test', {**rule, 'enabled':False, 'text':'a@example.com'})['matched'])
+            self.assertEqual(len(self.request('/api/events?q=a%40example.com')[1]['matches']), 1)
+        finally:
+            self.request('/api/rules/' + str(rule_id), method='DELETE')
+            with app.connect() as db:
+                db.execute("DELETE FROM events WHERE id IN ('email-test','email-disabled')")
+
     def test_dashboard(self):
         with urlopen(self.url + '/') as response:
             self.assertIn(b'Wallee', response.read())

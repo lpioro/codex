@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
+from server.rules import matches as rule_matches, validate_rule
 
 DB = os.environ.get('PROMPT_DB', 'data/prompts.sqlite3')
 TOKEN = os.environ.get('PROMPT_TOKEN', '')
@@ -32,6 +33,11 @@ def init_db():
           id INTEGER PRIMARY KEY, name TEXT NOT NULL, contains TEXT NOT NULL,
           severity TEXT NOT NULL);
         ''')
+        columns = {r['name'] for r in db.execute('PRAGMA table_info(rules)')}
+        if 'type' not in columns:
+            db.execute("ALTER TABLE rules ADD COLUMN type TEXT NOT NULL DEFAULT 'contains'")
+        if 'enabled' not in columns:
+            db.execute('ALTER TABLE rules ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1')
 
 
 def ingest(payload):
@@ -44,7 +50,7 @@ def ingest(payload):
         raise ValueError('Prompt must contain 1–100000 characters')
     with connect() as db:
         matches = [dict(r) for r in db.execute('SELECT * FROM rules')
-                   if r['contains'].casefold() in prompt.casefold()]
+                   if rule_matches(dict(r), prompt)]
         db.execute('INSERT OR IGNORE INTO events VALUES (?, ?, ?, ?, ?)',
                    (event_id, datetime.now(timezone.utc).isoformat(), provider,
                     prompt, json.dumps(matches)))
@@ -121,17 +127,25 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError('Expected object')
             if self.path == '/api/events':
                 return self.send(201, ingest(data))
-            if self.path == '/api/rules':
-                name, contains, severity = (data.get(k) for k in ('name', 'contains', 'severity'))
-                if not isinstance(name, str) or not 1 <= len(name.strip()) <= 100:
-                    raise ValueError('Invalid rule name')
-                if not isinstance(contains, str) or not 1 <= len(contains.strip()) <= 500:
-                    raise ValueError('Invalid rule text')
-                if severity not in ('info', 'warning', 'critical'):
-                    raise ValueError('Invalid severity')
+            if self.path == '/api/rules/test':
+                rule = validate_rule(data)
+                text = data.get('text')
+                if not isinstance(text, str) or len(text) > 100000:
+                    raise ValueError('Invalid test text')
+                return self.send(200, {'matched': rule_matches(rule, text)})
+            if self.path == '/api/rules' or self.path.startswith('/api/rules/'):
+                rule = validate_rule(data)
+                values = (rule['name'], rule['contains'], rule['severity'], rule['type'], rule['enabled'])
                 with connect() as db:
-                    cursor = db.execute('INSERT INTO rules(name, contains, severity) VALUES (?, ?, ?)', (name.strip(), contains.strip(), severity))
-                return self.send(201, {'id': cursor.lastrowid})
+                    if self.path == '/api/rules':
+                        cursor = db.execute('INSERT INTO rules(name, contains, severity, type, enabled) VALUES (?, ?, ?, ?, ?)', values)
+                        rule_id = cursor.lastrowid
+                    else:
+                        rule_id = int(self.path.rsplit('/', 1)[1])
+                        cursor = db.execute('UPDATE rules SET name=?, contains=?, severity=?, type=?, enabled=? WHERE id=?', (*values, rule_id))
+                        if not cursor.rowcount:
+                            return self.send(404, {'error': 'Rule not found'})
+                return self.send(201 if self.path == '/api/rules' else 200, {'id': rule_id})
             return self.send(404, {'error': 'Not found'})
         except (ValueError, TypeError):
             return self.send(400, {'error': 'Invalid request'})

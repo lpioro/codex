@@ -112,7 +112,11 @@ Tunel zapewnia transport HTTPS do Cloudflare, ale treść promptów przechodzi p
 
 ## Reguły i zakres
 
-Reguły wyszukują dosłowny fragment tekstu bez rozróżniania wielkości liter; poziomy: info, warning, critical. Wynik jest utrwalany przy zapisie — zmiana lub usunięcie reguły nie zmienia historii. Dashboard filtruje ostatnie 1000 zdarzeń po tekście, dostawcy i poziomie. Odświeżanie jest ręczne.
+Konstruktor obsługuje trzy typy reguł: fragment tekstu (bez rozróżniania wielkości liter), adres e-mail oraz PESEL. Przyciski + E-mail i + PESEL wypełniają gotowe szablony — kliknij Zapisz regułę, aby je aktywować. Poziomy: info, warning, critical. Reguły można edytować, wyłączać i usuwać. Przycisk Sprawdź dopasowanie wysyła tekst do własnego kolektora, ale nie zapisuje go jako zdarzenia ani reguły; próba wyłączonej reguły zwraca brak dopasowania.
+
+Detektor e-mail wykrywa typowe adresy ASCII z domeną zawierającą kropkę, a nie pełny zakres RFC ani adresy międzynarodowe. Detektor PESEL szuka ciągu 11 cyfr i weryfikuje datę urodzenia (stulecia 1800–2299) oraz sumę kontrolną; nie sprawdza nadania numeru w rejestrze. Są to sygnały obserwowalności: nie blokują wysyłania i nie maskują danych. Nie ma wykonywania dowolnych regexów użytkownika.
+
+Przy uruchomieniu serwer automatycznie dodaje kolumny typu i stanu do starej bazy; istniejące reguły pozostają aktywnymi regułami tekstowymi. Zrób kopię bazy przed aktualizacją. Wynik jest utrwalany przy zapisie — zmiana lub usunięcie reguły nie zmienia historii. Dashboard filtruje ostatnie 1000 zdarzeń po tekście, dostawcy i poziomie. Odświeżanie jest ręczne.
 
 To wersja dla jednego użytkownika i niewielkiego ruchu. Nie obejmuje retencji, wieloużytkownikowości, alertów zewnętrznych, redakcji danych ani metryk odpowiedzi/tokenów. Standardowy serwer HTTP Pythona jest prostym kolektorem za tunelem; przed wdrożeniem dla wielu użytkowników potrzebne są utwardzenie, limity ruchu i zarządzanie tożsamościami. Kopię SQLite wykonuj przez mechanizm backup SQLite, uwzględniając tryb WAL.
 
