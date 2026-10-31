@@ -154,4 +154,4 @@ if __name__ == '__main__':
     if len(TOKEN) < 32:
         raise SystemExit('Set PROMPT_TOKEN to a random token of at least 32 characters')
     init_db()
-    ThreadingHTTPServer(('127.0.0.1', int(os.environ.get('PORT', '8787'))), Handler).serve_forever()
+    ThreadingHTTPServer((os.environ.get('HOST', '127.0.0.1'), int(os.environ.get('PORT', '8787'))), Handler).serve_forever()

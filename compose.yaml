@@ -1,0 +1,45 @@
+services:
+  observatory:
+    build: .
+    image: prompt-observatory:local
+    restart: unless-stopped
+    environment:
+      PROMPT_TOKEN: ${PROMPT_TOKEN:?Set PROMPT_TOKEN in .env (at least 32 characters)}
+    ports:
+      - "127.0.0.1:${PORT:-8787}:8787"
+    volumes:
+      - prompts:/data
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  cloudflared:
+    image: cloudflare/cloudflared:2026.10.0
+    profiles: [tunnel]
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:-}
+    depends_on:
+      observatory:
+        condition: service_healthy
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  prompts:

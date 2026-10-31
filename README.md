@@ -17,6 +17,45 @@ Dashboard: otwórz lokalnie port 8787 i podaj token z własnej zmiennej środowi
 python3 -m unittest discover -s tests -v
 ```
 
+## Docker Compose (także w LXC)
+
+Wymagany Docker Engine i Compose v2. W LXC administrator hosta musi udostępnić obsługę kontenerów zagnieżdżonych (nesting), cgroups i wymagane funkcje kernela; samo zainstalowanie klienta Docker nie wystarcza.
+
+```bash
+cp .env.example .env
+chmod 600 .env
+python3 -c 'import secrets; print(secrets.token_urlsafe(32))'
+# Wpisz wygenerowaną wartość jako PROMPT_TOKEN w .env.
+docker compose up -d --build
+docker compose ps
+docker compose logs --tail=50 observatory
+curl --fail http://127.0.0.1:8787/health
+```
+
+Dashboard i API są dostępne na porcie 8787 wyłącznie na lokalnym interfejsie hosta. Port hosta można zmienić przez PORT w .env. Wewnątrz kontenera aplikacja słucha na 0.0.0.0:8787; poza Dockerem nadal domyślnie na 127.0.0.1 (zmienna HOST). Obraz uruchamia aplikację jako użytkownik 10001 bez uprawnień root, z kontrolą zdrowia. Compose dodatkowo ustawia system plików tylko do odczytu i usuwa capabilities. Baza jest zapisywana w trwałym nazwanym wolumenie prompts. Pierwszy build uruchamia testy API w etapie testowym; brak bibliotek do pobierania przez pip.
+
+Po zbudowaniu obrazu uruchom test kontenerowy przez `python3 tests/docker_smoke.py`. Tworzy osobny projekt Compose z losowym tokenem, zajmuje lokalny port 18787 i sprawdza zapis, autoryzację oraz zachowanie bazy po odtworzeniu kontenera. Na końcu usuwa wyłącznie swój testowy projekt i wolumen.
+
+### Tunel Cloudflare jako drugi kontener
+
+Utwórz zdalnie zarządzany Cloudflare Tunnel w panelu Cloudflare, wpisz jego token jako TUNNEL_TOKEN w lokalnym .env i ustaw trasę publicznej domeny na usługę **http://observatory:8787** (nie localhost — tunel jest osobnym kontenerem). Następnie:
+
+```bash
+docker compose --profile tunnel up -d --build
+docker compose logs --tail=50 cloudflared
+```
+
+Bez profilu tunnel uruchamia się tylko aplikacja. Cloudflared czeka na zdrowy kolektor. Wtyczka nadal wymaga PROMPT_TOKEN; TUNNEL_TOKEN jest innym sekretem, tylko dla połączenia z Cloudflare. Wtyczka Chrome jest ładowana z katalogu extension, nie uruchamia się jej w kontenerze. Tunel wymaga wychodzącego dostępu do Cloudflare; konfiguracja konta i domeny odbywa się w Twojej infrastrukturze.
+
+```bash
+docker compose restart observatory
+docker compose down
+# Ponowne uruchomienie zachowuje bazę:
+docker compose up -d
+```
+
+Nie używaj down -v, jeśli chcesz zachować dane — usuwa wolumen bazy. Plik .env jest ignorowany przez Git i wyłączony z kontekstu budowania. Dockerfile kopiuje tylko serwer i testy. Nie dodawaj tokenów do obrazu ani repozytorium. Zmiana PROMPT_TOKEN w .env wymaga odtworzenia kontenera przez docker compose up -d i aktualizacji wtyczki. Wersje bazowe są wskazane tagami; przed docelowym wdrożeniem można przypiąć je dodatkowo do digestów z własnego rejestru.
+
 ## Wtyczka
 
 1. Otwórz chrome://extensions, włącz tryb dewelopera i wybierz „Załaduj rozpakowane”.
