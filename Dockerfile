@@ -7,6 +7,9 @@ COPY extension/ extension/
 RUN python -m unittest discover -s tests -v
 
 FROM python:3.12-slim-bookworm AS runtime
+LABEL org.opencontainers.image.title="WalleeGuard" \
+      org.opencontainers.image.description="Private AI prompt collector, browser endpoint management and security dashboard" \
+      org.opencontainers.image.source="https://github.com/lpioro/codex"
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     HOST=0.0.0.0 \

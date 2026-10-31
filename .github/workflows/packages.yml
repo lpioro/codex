@@ -119,5 +119,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          gh release create "$RELEASE_TAG" --verify-tag --generate-notes \
-            dist/*.zip dist/*.sha256 dist/*.sqlite3 compose.yaml compose.demo.yaml .env.example README.md
+          if [ -f "docs/releases/$RELEASE_TAG.md" ]; then
+            notes=(--notes-file "docs/releases/$RELEASE_TAG.md")
+          else
+            notes=(--generate-notes)
+          fi
+          gh release create "$RELEASE_TAG" --verify-tag "${notes[@]}" \
+            dist/*.zip dist/*.sha256 dist/*.sqlite3 compose.yaml compose.demo.yaml .env.example README.md CHANGELOG.md
