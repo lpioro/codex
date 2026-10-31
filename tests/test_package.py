@@ -22,7 +22,9 @@ class ExtensionPackage(unittest.TestCase):
                 referenced = [manifest['background']['service_worker'], manifest['options_page'], *manifest['icons'].values(), *manifest['action']['default_icon'].values()]
                 for script in manifest['content_scripts']:
                     referenced.extend(script['js'])
+                    referenced.extend(script.get('css', []))
                 self.assertTrue(set(referenced).issubset(bundle.namelist()))
+                self.assertIn('rules.js',bundle.namelist())
                 self.assertNotIn('.env', bundle.namelist())
                 for size, filename in manifest['icons'].items():
                     image = bundle.read(filename)

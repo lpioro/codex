@@ -30,6 +30,10 @@ def filtered_events(db, query, limit=None):
         values.append(value('severity'))
     if value('alerts') == '1':
         conditions.append("v.matches!='[]'")
+    if value('action'):
+        if value('action') not in ('observed','allowed','blocked'):
+            raise ValueError('Invalid action')
+        conditions.append('v.action=?'); values.append(value('action'))
     period = value('range') or 'all'
     if period != 'all':
         if period not in RANGES:
@@ -77,7 +81,7 @@ def summarize(events, period='24h'):
         buckets[index]['events'] += 1
         if highest:
             buckets[index]['alerts'] += 1; buckets[index][highest] += 1
-    return {'total':len(events),'alerts':flagged,'critical':severity['critical'],
+    return {'blocked':sum(e.get('action')=='blocked' for e in events),'total':len(events),'alerts':flagged,'critical':severity['critical'],
             'endpoints':len({e['endpoint_id'] for e in events if e['endpoint_id']}),
             'severity':{k:severity[k] for k in LEVELS},'providers':dict(providers),
             'groups':dict(groups),'top_rules':[{'name':k,'count':v} for k,v in rules.most_common(6)],

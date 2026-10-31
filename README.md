@@ -115,7 +115,7 @@ Tunel zapewnia transport HTTPS do Cloudflare, ale treść promptów przechodzi p
 
 Konstruktor obsługuje trzy typy reguł: fragment tekstu (bez rozróżniania wielkości liter), adres e-mail oraz PESEL. Przyciski + E-mail i + PESEL wypełniają gotowe szablony — kliknij Zapisz regułę, aby je aktywować. Poziomy: info, warning, critical. Reguły można edytować, wyłączać i usuwać. Przycisk Sprawdź dopasowanie wysyła tekst do własnego kolektora, ale nie zapisuje go jako zdarzenia ani reguły; próba wyłączonej reguły zwraca brak dopasowania.
 
-Detektor e-mail wykrywa typowe adresy ASCII z domeną zawierającą kropkę, a nie pełny zakres RFC ani adresy międzynarodowe. Detektor PESEL szuka ciągu 11 cyfr i weryfikuje datę urodzenia (stulecia 1800–2299) oraz sumę kontrolną; nie sprawdza nadania numeru w rejestrze. Są to sygnały obserwowalności: nie blokują wysyłania i nie maskują danych. Nie ma wykonywania dowolnych regexów użytkownika.
+Detektor e-mail wykrywa typowe adresy ASCII z domeną zawierającą kropkę, a nie pełny zakres RFC ani adresy międzynarodowe. Detektor PESEL szuka ciągu 11 cyfr i weryfikuje datę urodzenia (stulecia 1800–2299) oraz sumę kontrolną; nie sprawdza nadania numeru w rejestrze. Reguły warning/info oznaczają zdarzenia. Aktywne reguły critical są też wykorzystywane przez tryb blokowania wtyczki od 0.4.0. Dane nie są maskowane. Nie ma wykonywania dowolnych regexów użytkownika.
 
 Przy uruchomieniu serwer automatycznie dodaje kolumny typu i stanu do starej bazy; istniejące reguły pozostają aktywnymi regułami tekstowymi. Zrób kopię bazy przed aktualizacją. Wynik jest utrwalany przy zapisie — zmiana lub usunięcie reguły nie zmienia historii. Dashboard filtruje ostatnie 1000 zdarzeń po tekście, dostawcy i poziomie. Odświeżanie jest ręczne.
 
@@ -125,13 +125,13 @@ Cloudflare, LXC i przechwytywanie na żywych stronach nie są zweryfikowane prze
 
 ## Paczki i GitHub Releases
 
-Workflow `.github/workflows/packages.yml` sprawdza API, JavaScript, paczkę wtyczki i działanie Compose. Pull requesty budują obraz bez publikacji. Push na main publikuje obraz `ghcr.io/lpioro/codex:edge` i tag powiązany z SHA. Tag wydania np. `v0.3.0` publikuje `ghcr.io/lpioro/codex:0.3.0` oraz `latest` dla stabilnej wersji, a następnie tworzy GitHub Release z ZIP-em wtyczki, sumą SHA-256, compose.yaml, .env.example i README. Obecny obraz jest budowany dla linux/amd64.
+Workflow `.github/workflows/packages.yml` sprawdza API, JavaScript, paczkę wtyczki i działanie Compose. Pull requesty budują obraz bez publikacji. Push na main publikuje obraz `ghcr.io/lpioro/codex:edge` i tag powiązany z SHA. Tag wydania np. `v0.4.0` publikuje `ghcr.io/lpioro/codex:0.4.0` oraz `latest` dla stabilnej wersji, a następnie tworzy GitHub Release z ZIP-em wtyczki, sumą SHA-256, compose.yaml, .env.example i README. Obecny obraz jest budowany dla linux/amd64.
 
 Workflow używa wbudowanego GITHUB_TOKEN; nie wymaga dodawania PAT. GitHub Actions musi być włączone, a polityka organizacji musi zezwalać na publikację pakietów. Widoczność pakietu GHCR ustaw w jego ustawieniach: dla pobierania bez logowania musi być publiczny. Przy prywatnym pakiecie odbiorca musi wykonać docker login ghcr.io z uprawnieniem odczytu pakietu. Pierwszy push konfiguracji nie potwierdza jeszcze, że workflow zakończył się sukcesem.
 
 ### Instalacja gotowej wersji bez budowania
 
-Pobierz compose.yaml i .env.example z wybranego GitHub Release do jednego katalogu. Skopiuj .env.example do .env, zabezpiecz go prawami 600, ustaw własny PROMPT_TOKEN i dodaj `PROMPT_IMAGE=ghcr.io/lpioro/codex:0.3.0` (podstaw rzeczywistą opublikowaną wersję). Potem:
+Pobierz compose.yaml i .env.example z wybranego GitHub Release do jednego katalogu. Skopiuj .env.example do .env, zabezpiecz go prawami 600, ustaw własny PROMPT_TOKEN i dodaj `PROMPT_IMAGE=ghcr.io/lpioro/codex:0.4.0` (podstaw rzeczywistą opublikowaną wersję). Potem:
 
 ```bash
 docker compose pull observatory
@@ -148,10 +148,10 @@ ZIP wtyczki rozpakuj do osobnego katalogu. W chrome://extensions wybierz tryb de
 Zaktualizuj version w extension/manifest.json, zatwierdź zmiany i sprawdź workflow. Tag musi zgadzać się z wersją manifestu:
 
 ```bash
-python3 scripts/package_extension.py --version 0.3.0
+python3 scripts/package_extension.py --version 0.4.0
 # Dopiero gdy chcesz opublikować tę wersję:
-git tag v0.3.0
-git push origin v0.3.0
+git tag v0.4.0
+git push origin v0.4.0
 ```
 
 Lokalna paczka i suma kontrolna powstają w ignorowanym katalogu dist. W ZIP-ie znajduje się manifest i cztery jawnie wskazane pliki wtyczki; baza i sekrety nie są dołączane. Zawartość archiwum jest powtarzalna dla tych samych źródeł. W razie błędu wersji publikacja zatrzymuje się przed wysłaniem obrazu i utworzeniem Release. Status publikacji sprawdzaj w zakładce Actions repozytorium; sam tag nie dowodzi gotowości paczek.
@@ -190,8 +190,8 @@ Dashboard pokazuje endpoint i grupę przy każdym zdarzeniu, filtr po endpointac
 
 Token endpointu:
 - jest widoczny tylko po utworzeniu lub rotacji; w bazie zapisany jest jego SHA-256;
-- umożliwia tylko POST /api/events i POST /api/heartbeat;
-- nie pozwala czytać logów, reguł ani listy endpointów lub zarządzać konfiguracją;
+- umożliwia POST /api/events, POST /api/heartbeat i pobranie aktywnych krytycznych reguł przez POST /api/policy;
+- nie pozwala czytać logów, pełnej listy reguł ani listy endpointów lub zarządzać konfiguracją;
 - jest przypisywany do zdarzeń po stronie serwera, więc wtyczka nie może podać tożsamości innego endpointu;
 - może zostać cofnięty bez usuwania historii; rotacja unieważnia stary token i pozwala ponownie sparować profil.
 
@@ -201,7 +201,7 @@ Zdarzenia z różnych endpointów mają osobne przestrzenie identyfikatorów, wi
 
 1. Wykonaj kopię bazy SQLite i zaktualizuj serwer.
 2. Migracja doda tabelę endpointów i kolumnę endpoint_id; stare logi pozostają jako Nieprzypisane / starsze wersje.
-3. Zainstaluj/przeładuj wtyczkę 0.3.0 i w dashboardzie utwórz osobny endpoint dla każdego profilu.
+3. Zainstaluj/przeładuj wtyczkę 0.4.0 i w dashboardzie utwórz osobny endpoint dla każdego profilu.
 4. Wyślij starą kolejkę przed aktualizacją albo usuń ją świadomie w ustawieniach. Zmiana tokena lub serwera z niepustą kolejką jest blokowana, aby nie przypisać dawnych logów do innego endpointu.
 5. Wpisz token endpointu we wtyczce i zapisz ustawienia. To wykonuje heartbeat oraz parowanie; w razie błędu nowa konfiguracja nie zastępuje działającej.
 6. Jeśli wcześniej udostępniałeś token administratora wtyczkom, po przeniesieniu ich na dedykowane tokeny zmień PROMPT_TOKEN na serwerze. Dla zgodności integracje używające tokena administratora nadal mogą wysyłać zdarzenia, ale trafiają one wyłącznie do logów nieprzypisanych.
@@ -221,3 +221,19 @@ Filtry czasu (1 h / 24 h / 7 dni / 30 dni / cała historia), grupy, endpointu, d
 Grupy można tworzyć, zmieniać nazwy i usuwać, jeśli są puste. Zmiana nazwy aktualizuje przypisanie endpointów; przynależność historycznych logów odpowiada obecnej grupie urządzenia. Można przypisać grupę podczas edycji endpointu; nowa nazwa automatycznie tworzy grupę. Karty grup pokazują liczbę endpointów i logów z całej historii, niezależnie od filtrów analitycznych. Przycisk Analizuj ruch przechodzi do przeglądu z filtrem grupy. Grupy służą organizacji i filtrowaniu, a nie izolacji uprawnień ani osobnym politykom reguł.
 
 Generator demo tworzy 720 promptów z 12 profili w zespołach Finanse, Inżynieria, HR, QA i Obsługa klienta. Zawiera też przykłady fikcyjnych kluczy API, danych płacowych, zdrowotnych, eksportów i dokumentów finansowych. Można zmienić rozmiar: python3 -m server.demo --output data/demo-large.sqlite3 --events 1440 (minimum liczba scenariuszy źródłowych, maksimum 10000). Istniejące bazy demo nie są automatycznie uzupełniane — utwórz nowy plik lub nowy wolumen, aby zachować dotychczasowe dane.
+
+## Blokowanie krytycznych promptów (wtyczka 0.4.0)
+
+W ustawieniach wtyczki jest osobna opcja Blokuj krytyczne prompty przed wysłaniem, domyślnie włączona. Logowanie i blokowanie są niezależne: można chronić prompt lokalnie bez zapisywania jego treści. Nowa wersja wymaga aktualnego serwera obsługującego POST /api/policy oraz tokena konkretnego endpointu. Zaktualizuj serwer, przeładuj wtyczkę i odśwież otwarte karty dostawców. Starszy serwer nie jest traktowany jako zgoda na wysyłanie bez analizy.
+
+Przed rozpoznanym Enterem (również Ctrl/Command+Enter), kliknięciem przycisku wysyłki lub zdarzeniem submit wtyczka zatrzymuje zdarzenie i analizuje treść lokalnie. Pobiera tylko aktywne reguły critical z kolektora: fragment tekstu, e-mail i PESEL. Nie wysyła treści promptu do API w celu analizy. Dowolne dopasowanie krytyczne zatrzymuje wysyłkę i pokazuje nazwy reguł. Prompt pozostaje w edytorze; nie ma przycisku jednorazowego pominięcia. Regułę można zmienić w dashboardzie lub świadomie wyłączyć blokowanie w ustawieniach. Osobny przycisk Wyłącz blokowanie lokalnie działa także bez połączenia z kolektorem.
+
+Bez dopasowania wtyczka uruchamia rozpoznany przycisk wysyłania albo formularz tylko wtedy, gdy tekst i edytor nie zmieniły się podczas analizy. Nieodczytany edytor, zbyt długi prompt, brak przycisku/formularza, błąd rozszerzenia lub przekroczenie czasu sprawdzania zatrzymują próbę. Shift+Enter i kompozycja tekstu nie są traktowane jako wysyłka. Pusta lista krytycznych reguł jest prawidłową polityką i nie blokuje bezpiecznych według niej promptów — aby wykrywać np. PESEL, utwórz aktywną regułę PESEL z poziomem critical.
+
+Polityka jest powiązana z adresem kolektora i tokenem. Przez 60 sekund może być używana bez ponownego pobrania. Gdy odświeżenie nie powiedzie się z powodu braku połączenia, kopia młodsza niż 5 minut nadal działa lokalnie. Starsza kopia lub brak polityki zatrzymują wszystkie rozpoznane próby wysłania. Odpowiedź API 401/403/409 nie pozwala skorzystać ze starej kopii. Zmiana reguł lub cofnięcie tokena może być zauważone przy następnym odświeżeniu; cache nie jest mechanizmem natychmiastowej propagacji.
+
+Przy włączonym logowaniu w bazie pojawiają się także próby z akcją blocked lub allowed. Pole oznacza decyzję zgłoszoną przez rozszerzenie, a nie potwierdzenie wysłania lub odbioru przez dostawcę. Dotychczasowe logi i tryb samego przechwytywania mają action=observed. Dashboard odróżnia te stany i udostępnia filtr Decyzja ochrony. Przesłane logi nadal zawierają pełną treść promptu. Wyłączone logowanie nie zapisuje nawet zablokowanych treści. Zmiana kolumn bazy odbywa się automatycznie przy starcie; historia jest zachowana.
+
+Ochrona dotyczy rozpoznanych edytorów i ścieżek wysyłki w ChatGPT, Claude i Gemini. Nie analizuje załączników, głosu ani obrazów i nie jest filtrem wszystkich żądań sieciowych ani gwarancją wykrycia każdego niebezpiecznego promptu. Zmiany interfejsów dostawców, bezpośrednie wywołania sieciowe strony lub programowe wysłanie pomijające zdarzenia DOM mogą ominąć ten mechanizm. Testy w Chromium używają kontrolowanych formularzy odwzorowujących selektory i zdarzenia; nie potwierdzają zgodności z każdą bieżącą wersją rzeczywistych witryn.
+
+Testy lokalnego silnika: node tests/extension_rules.test.cjs. Opcjonalny test DOM: python3 tests/browser_guard.py (wymaga Playwright i Chromium; ścieżka w BROWSER_BIN, domyślnie /usr/bin/chromium). Test obejmuje trzy formularze, blokowanie Enter/click/Ctrl+Enter/submit, pojedynczą bezpieczną wysyłkę, awarię sprawdzania i zmianę tekstu w trakcie analizy.

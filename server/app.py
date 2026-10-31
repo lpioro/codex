@@ -57,6 +57,8 @@ def init_db():
         event_columns = {r['name'] for r in db.execute('PRAGMA table_info(events)')}
         if 'endpoint_id' not in event_columns:
             db.execute('ALTER TABLE events ADD COLUMN endpoint_id TEXT')
+        if 'action' not in event_columns:
+            db.execute("ALTER TABLE events ADD COLUMN action TEXT NOT NULL DEFAULT 'observed'")
         db.execute('CREATE INDEX IF NOT EXISTS events_endpoint ON events(endpoint_id, received_at)')
         db.execute('CREATE INDEX IF NOT EXISTS endpoints_group ON endpoints(group_name)')
 
@@ -70,6 +72,9 @@ def ingest(payload, endpoint_id=None):
         raise ValueError('Unsupported provider')
     if not isinstance(prompt, str) or not prompt.strip() or len(prompt) > 100000:
         raise ValueError('Prompt must contain 1–100000 characters')
+    action = payload.get('action', 'observed')
+    if action not in ('observed', 'allowed', 'blocked'):
+        raise ValueError('Invalid event action')
     with connect() as db:
         storage_id = f'{endpoint_id}:{event_id}' if endpoint_id else event_id
         existing = db.execute('SELECT matches FROM events WHERE id=?', (storage_id,)).fetchone()
@@ -77,9 +82,9 @@ def ingest(payload, endpoint_id=None):
             return {'id': event_id, 'matches': json.loads(existing['matches'])}
         matches = [dict(r) for r in db.execute('SELECT * FROM rules')
                    if rule_matches(dict(r), prompt)]
-        db.execute('INSERT INTO events(id,received_at,provider,prompt,matches,endpoint_id) VALUES (?, ?, ?, ?, ?, ?)',
+        db.execute('INSERT INTO events(id,received_at,provider,prompt,matches,endpoint_id,action) VALUES (?, ?, ?, ?, ?, ?, ?)',
                    (storage_id, datetime.now(timezone.utc).isoformat(), provider,
-                    prompt, json.dumps(matches), endpoint_id))
+                    prompt, json.dumps(matches), endpoint_id, action))
         if endpoint_id:
             db.execute("UPDATE endpoints SET last_seen=? WHERE id=?", (datetime.now(timezone.utc).isoformat(), endpoint_id))
     return {'id': event_id, 'matches': matches}
@@ -190,9 +195,9 @@ class Handler(BaseHTTPRequestHandler):
             data = json.loads(self.rfile.read(size))
             if not isinstance(data, dict):
                 raise ValueError('Expected object')
-            if not admin and self.path not in ('/api/events', '/api/heartbeat'):
-                return self.send(403, {'error': 'Endpoint token can only send events and heartbeats'})
-            if self.path in ('/api/events', '/api/heartbeat') and identity:
+            if not admin and self.path not in ('/api/events', '/api/heartbeat', '/api/policy'):
+                return self.send(403, {'error': 'Endpoint token can only send events, heartbeats and fetch blocking policy'})
+            if self.path in ('/api/events', '/api/heartbeat', '/api/policy') and identity:
                 instance_id = data.get('instance_id')
                 version = data.get('version', '')
                 if not isinstance(instance_id, str) or not 1 <= len(instance_id) <= 100 or not isinstance(version, str) or len(version) > 40:
@@ -206,6 +211,14 @@ class Handler(BaseHTTPRequestHandler):
                                         (instance_id, version, datetime.now(timezone.utc).isoformat(), identity['id'], instance_id))
                     if not cursor.rowcount:
                         return self.send(409, {'error': 'Token already paired with another installation; create a separate endpoint'})
+            if self.path == '/api/policy':
+                if admin:
+                    return self.send(403, {'error':'Use a dedicated endpoint token'})
+                with connect() as db:
+                    rules = [dict(row) for row in db.execute(
+                        "SELECT id,name,type,contains,severity FROM rules WHERE enabled=1 AND severity='critical' ORDER BY id")]
+                version = hashlib.sha256(json.dumps(rules,sort_keys=True).encode()).hexdigest()
+                return self.send(200, {'rules':rules,'version':version})
             if self.path == '/api/heartbeat':
                 if admin:
                     return self.send(403, {'error': 'Use a dedicated endpoint token'})
@@ -236,6 +249,7 @@ class Handler(BaseHTTPRequestHandler):
                 if len(parts) not in (3, 4):
                     raise ValueError('Invalid endpoint operation')
                 endpoint_id = parts[2]
+                rotated_token = None
                 with connect() as db:
                     if not db.execute('SELECT id FROM endpoints WHERE id=?', (endpoint_id,)).fetchone():
                         return self.send(404, {'error':'Endpoint not found'})
@@ -250,10 +264,10 @@ class Handler(BaseHTTPRequestHandler):
                         token = secrets.token_urlsafe(32)
                         db.execute('UPDATE endpoints SET token_hash=?,revoked=0,instance_id=NULL,last_seen=NULL WHERE id=?',
                                    (hashlib.sha256(token.encode()).hexdigest(),endpoint_id))
-                        return self.send(200, {'id':endpoint_id,'token':token})
+                        rotated_token = token
                     else:
                         raise ValueError('Unknown endpoint operation')
-                return self.send(200, {'id':endpoint_id})
+                return self.send(200, {'id':endpoint_id, **({'token':rotated_token} if rotated_token else {})})
 
             if self.path == '/api/rules/test':
                 rule = validate_rule(data)

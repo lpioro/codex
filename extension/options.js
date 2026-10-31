@@ -1,9 +1,10 @@
 const $ = id => document.getElementById(id);
 async function load() {
-  const s = await chrome.storage.local.get(['endpoint','token','enabled','queue','lastError','lastSuccess','instanceId','deviceId','deviceName','deviceGroup']);
+  const s = await chrome.storage.local.get(['endpoint','token','enabled','queue','lastError','lastSuccess','instanceId','deviceId','deviceName','deviceGroup','blockingEnabled']);
   $('endpoint').value = s.endpoint || '';
   $('token').value = s.token || '';
   $('enabled').checked = !!s.enabled;
+  $('blocking').checked=s.blockingEnabled!==false;
   $('identity').textContent = s.deviceId ? (s.deviceName + (s.deviceGroup ? ' · '+s.deviceGroup : '') + ' · ID: '+s.deviceId+' · Instalacja: '+s.instanceId) : 'Jeszcze nie sparowano. Utwórz endpoint w dashboardzie i wpisz jego token.';
   $('status').textContent = 'Oczekujące: '+(s.queue || []).length+'. Ostatni zapis: '+(s.lastSuccess || 'brak')+'. '+(s.lastError || '');
 }
@@ -16,7 +17,7 @@ $('settings').onsubmit = async e => {
     if ($('token').value.length < 32) throw Error('Token musi mieć co najmniej 32 znaki.');
     const granted = await chrome.permissions.request({origins:[url.origin+'/*']});
     if (!granted) throw Error('Nie przyznano dostępu do serwera.');
-    const response = await chrome.runtime.sendMessage({type:'configure',config:{endpoint:url.origin,token:$('token').value,enabled:$('enabled').checked}});
+    const response = await chrome.runtime.sendMessage({type:'configure',config:{endpoint:url.origin,token:$('token').value,enabled:$('enabled').checked,blockingEnabled:$('blocking').checked}});
     if (!response.ok) throw Error(response.error);
     await load();
     $('status').textContent = 'Sparowano: '+response.result.name+'. Przechwytywanie: '+($('enabled').checked ? 'włączone' : 'wyłączone');
@@ -24,3 +25,9 @@ $('settings').onsubmit = async e => {
 };
 $('clear').onclick = async () => { await chrome.runtime.sendMessage({type:'clearQueue'}); await load(); };
 load();
+
+$('disable-blocking').onclick=async()=>{
+  const result=await chrome.runtime.sendMessage({type:'disableBlocking'});
+  if(!result.ok){$('status').textContent=result.error;return;}
+  await load();$('status').textContent='Blokowanie wyłączone lokalnie. Prompty nie będą zatrzymywane.';
+};

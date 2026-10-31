@@ -5,6 +5,7 @@ import sqlite3
 import tempfile
 import threading
 import unittest
+from unittest.mock import patch
 from http.server import ThreadingHTTPServer
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -119,6 +120,42 @@ class Endpoints(unittest.TestCase):
         self.assertEqual(error.exception.code,409)
         error.exception.close()
 
+    def test_blocking_policy_and_audit(self):
+        endpoint=self.create('Protected browser')
+        profile={'instance_id':'browser','version':'0.4.0'}
+        with app.connect() as db:
+            db.execute("INSERT INTO rules(name,contains,severity,type,enabled) VALUES ('Critical','secret','critical','contains',1)")
+            db.execute("INSERT INTO rules(name,contains,severity,type,enabled) VALUES ('Warning','test','warning','contains',1)")
+            db.execute("INSERT INTO rules(name,contains,severity,type,enabled) VALUES ('Disabled','','critical','email',0)")
+        policy=self.request('/api/policy',profile,endpoint['token'])
+        self.assertEqual([rule['name'] for rule in policy['rules']],['Critical'])
+        self.assertEqual(len(policy['version']),64)
+        self.assertNotIn('prompt',policy)
+        self.request('/api/policy',profile,status=403)
+        self.request('/api/policy',{},endpoint['token'],400)
+        self.request('/api/policy',{**profile,'instance_id':'other'},endpoint['token'],409)
+        self.request('/api/events',{**profile,'id':'blocked-attempt','provider':'chatgpt','prompt':'secret','action':'blocked'},endpoint['token'],201)
+        events=self.request('/api/events?action=blocked')
+        self.assertEqual(len(events),1)
+        self.assertEqual(events[0]['action'],'blocked')
+        self.assertEqual(self.request('/api/analytics?action=blocked')['blocked'],1)
+        self.request('/api/endpoints/'+endpoint['id']+'/revoke',{})
+        self.request('/api/policy',profile,endpoint['token'],401)
+
+    def test_rotation_commits_before_success_response(self):
+        endpoint=self.create('Rotate atomically')
+        original_send=app.Handler.send
+        committed=[]
+        def inspect_response(handler,status,payload):
+            if status==200 and 'token' in payload:
+                with app.connect() as db:
+                    current=db.execute('SELECT token_hash FROM endpoints WHERE id=?',(endpoint['id'],)).fetchone()[0]
+                committed.append(current==hashlib.sha256(payload['token'].encode()).hexdigest())
+            return original_send(handler,status,payload)
+        with patch.object(app.Handler,'send',inspect_response):
+            self.request('/api/endpoints/'+endpoint['id']+'/rotate',{})
+        self.assertEqual(committed,[True])
+
     def test_old_database_migration(self):
         legacy=Path(self.tmp.name)/'legacy.sqlite3'
         with sqlite3.connect(legacy) as db:
@@ -132,6 +169,7 @@ class Endpoints(unittest.TestCase):
             with app.connect() as db:
                 row=dict(db.execute('SELECT * FROM events').fetchone())
                 self.assertIsNone(row['endpoint_id'])
+                self.assertEqual(row['action'],'observed')
                 self.assertEqual(row['prompt'],'old prompt')
         finally:
             app.DB=current

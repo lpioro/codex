@@ -18,7 +18,7 @@ function node(tag,text,cls) {const el=document.createElement(tag); el.textConten
 async function run(fn) {try {await fn();} catch(e){$('error').textContent=e.message;if(!$('login').hidden)$('login-error').textContent=e.message;}}
 function query() {
   return new URLSearchParams({q:$('search').value,provider:$('provider').value,severity:$('severity').value,
-    endpoint_id:$('endpoint-filter').value,group:$('group-filter').value,range:$('time-filter').value});
+    endpoint_id:$('endpoint-filter').value,group:$('group-filter').value,range:$('time-filter').value,action:$('action-filter').value});
 }
 function switchView(view) {
   if (!views[view]) return;
@@ -39,6 +39,8 @@ function eventCards(target,events) {
     const meta=node('div','','d-flex flex-wrap gap-2 align-items-center');
     meta.append(node('small',event.provider+' · '+new Date(event.received_at).toLocaleString('pl-PL'),'prompt-meta me-auto'));
     for(const match of event.matches) meta.append(node('span',match.severity+' · '+match.name,'badge signal '+match.severity));
+    if(event.action==='blocked')meta.append(node('span','Zatrzymane przez wtyczkę','badge signal critical'));
+    if(event.action==='allowed')meta.append(node('span','Dozwolone przez politykę','badge signal info'));
     card.append(meta,node('div',(event.endpoint_name||'Nieprzypisany endpoint')+' · '+(event.endpoint_group||'Bez grupy'),'small text-body-secondary mt-2 text-break'),node('pre',event.prompt));
     target.append(card);
   }
@@ -59,6 +61,7 @@ async function refresh() {
     $('flagged').textContent=analytics.alerts.toLocaleString('pl-PL');
     $('critical-total').textContent=analytics.critical.toLocaleString('pl-PL');
     $('endpoint-total').textContent=analytics.endpoints;
+    $('blocked-total').textContent=analytics.blocked;
     $('rule-count').textContent=rules.filter(r=>r.enabled).length;
     $('alert-rate').textContent=(analytics.total ? Math.round(100*analytics.alerts/analytics.total) : 0)+'% wybranego ruchu';
     $('nav-events').textContent=analytics.total; $('nav-alerts').textContent=analytics.alerts;
@@ -97,12 +100,12 @@ async function refresh() {
   } catch(e) {if(id===refreshId) $('error').textContent=e.message; throw e;}
 }
 function resetFilters() {
-  for(const key of ['search','provider','severity','group-filter','endpoint-filter'])$(key).value='';
+  for(const key of ['search','provider','severity','group-filter','endpoint-filter','action-filter'])$(key).value='';
   $('time-filter').value='24h';run(refresh);
 }
 $('reset-filters').onclick=resetFilters;
 $('refresh').onclick=()=>run(refresh);
-for(const id of ['search','provider','severity','endpoint-filter','time-filter','group-filter'])$(id).onchange=()=>run(refresh);
+for(const id of ['search','provider','severity','endpoint-filter','time-filter','group-filter','action-filter'])$(id).onchange=()=>run(refresh);
 $('auth').onsubmit=e=>{
   e.preventDefault();token=$('token').value;
   run(async()=>{await refresh();$('token').value='';$('login-error').textContent='';$('login').hidden=true;$('workspace').hidden=false;$('status').textContent='Kolektor połączony';$('status').classList.add('connected');switchView('overview');clearInterval(refreshTimer);refreshTimer=setInterval(()=>{if(token&&$('auto-refresh').checked&&!document.hidden)run(refresh);},30000);});

@@ -6,7 +6,7 @@ from pathlib import Path
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-FILES = ('manifest.json', 'background.js', 'content.js', 'options.html', 'options.js',
+FILES = ('manifest.json', 'background.js', 'content.js', 'options.html', 'options.js', 'rules.js', 'guard.css',
          'icons/icon-16.png', 'icons/icon-32.png', 'icons/icon-48.png', 'icons/icon-128.png', 'icons/logo.svg')
 
 

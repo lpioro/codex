@@ -1,3 +1,4 @@
+importScripts('rules.js');
 let serial = Promise.resolve();
 function enqueue(fn) {
   const task = serial.then(fn);
@@ -17,14 +18,47 @@ async function request(endpoint, token, path, data) {
     body:JSON.stringify(data), signal:AbortSignal.timeout(10000), redirect:'error', credentials:'omit'
   });
   const result = await response.json();
-  if (!response.ok) throw Error(result.error || 'API: '+response.status);
+  if (!response.ok) {const error=Error(result.error || 'API: '+response.status);error.status=response.status;throw error;}
   return result;
 }
-async function heartbeat(endpoint, token) {
+async function heartbeat(endpoint, token, persist=true) {
   const info = await request(endpoint, token, '/api/heartbeat',
     {instance_id:await installation(), version:chrome.runtime.getManifest().version});
-  await chrome.storage.local.set({deviceId:info.id, deviceName:info.name, deviceGroup:info.group_name});
+  if(persist)await chrome.storage.local.set({deviceId:info.id, deviceName:info.name, deviceGroup:info.group_name});
   return info;
+}
+async function policyFor(endpoint,token,force=false) {
+  const bytes=new TextEncoder().encode(endpoint+'|'+token);
+  const key=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),b=>b.toString(16).padStart(2,'0')).join('');
+  const {blockingPolicy:cache}=await chrome.storage.local.get('blockingPolicy');
+  const age=cache ? Date.now()-cache.fetchedAt : Infinity;
+  if(!force&&cache?.key===key&&age>=0&&age<60000)return cache.policy;
+  try {
+    const policy=await request(endpoint,token,'/api/policy',{instance_id:await installation(),version:chrome.runtime.getManifest().version});
+    // Validate even an empty policy before caching it.
+    WalleeRules.evaluate(policy,'policy validation');
+    await chrome.storage.local.set({blockingPolicy:{key,policy,fetchedAt:Date.now()}});
+    return policy;
+  } catch(error) {
+    if(!error.status&&cache?.key===key&&age>=0&&age<300000)return cache.policy;
+    throw Error(error.status ? 'Nie można pobrać polityki: '+error.message : 'Brak aktualnej polityki. Połącz z kolektorem i spróbuj ponownie.');
+  }
+}
+async function preflight(message) {
+  const config=await chrome.storage.local.get(['endpoint','token','blockingEnabled','enabled']);
+  if(config.blockingEnabled===false)return {decision:'disabled',matches:[]};
+  if(!config.endpoint||!config.token)throw Error('Skonfiguruj token endpointu w ustawieniach WalleeGuard.');
+  const policy=await policyFor(config.endpoint,config.token);
+  const verdict=WalleeRules.evaluate(policy,message.event.prompt);
+  if(config.enabled) {
+    enqueue(async()=>{
+      const {queue=[]}=await chrome.storage.local.get('queue');
+      if(queue.length>=100)throw Error('Kolejka pełna — decyzja ochrony nie została zapisana w logach.');
+      queue.push({...message.event,action:verdict.decision==='block'?'blocked':'allowed'});
+      await chrome.storage.local.set({queue});await flush();
+    }).catch(e=>chrome.storage.local.set({lastError:e.message}));
+  }
+  return verdict;
 }
 async function flush() {
   const {endpoint, token, queue = []} = await chrome.storage.local.get(['endpoint','token','queue']);
@@ -43,6 +77,15 @@ async function flush() {
 }
 chrome.runtime.onMessage.addListener((message, sender, reply) => {
   let task;
+  const expected = {'chatgpt.com':'chatgpt','claude.ai':'claude','gemini.google.com':'gemini'};
+  let host; try {host=new URL(sender.url).hostname;} catch {return;}
+  const trustedContent=!!sender.tab&&expected[host]===message.event?.provider;
+  if(message.type==='preflight'&&trustedContent) {
+    if(typeof message.event.id!=='string'||typeof message.event.prompt!=='string')return;
+    preflight(message).then(result=>reply({ok:true,result})).catch(e=>reply({ok:false,error:e.message}));
+    return true;
+  }
+  if(message.type==='openSettings'&&sender.tab&&expected[host]){chrome.runtime.openOptionsPage();reply({ok:true});return;}
   const settingsPage = sender.url === chrome.runtime.getURL('options.html');
   if (settingsPage && message.type === 'configure') {
     task = async () => {
@@ -54,10 +97,13 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       const old = await chrome.storage.local.get(['endpoint','token','queue']);
       if ((old.endpoint !== config.endpoint || old.token !== config.token) && old.queue?.length)
         throw Error('Przed zmianą serwera lub tokena wyślij albo usuń oczekujące prompty.');
-      const info = await heartbeat(config.endpoint, config.token);
-      await chrome.storage.local.set({endpoint:config.endpoint,token:config.token,enabled:!!config.enabled,lastError:''});
+      const info = await heartbeat(config.endpoint, config.token, false);
+      if(config.blockingEnabled!==false)await policyFor(config.endpoint,config.token,true);
+      await chrome.storage.local.set({endpoint:config.endpoint,token:config.token,enabled:!!config.enabled,blockingEnabled:config.blockingEnabled!==false,deviceId:info.id,deviceName:info.name,deviceGroup:info.group_name,lastError:''});
       return info;
     };
+  } else if(settingsPage && message.type==='disableBlocking') {
+    task=()=>chrome.storage.local.set({blockingEnabled:false});
   } else if (settingsPage && message.type === 'clearQueue') {
     task = () => chrome.storage.local.set({queue:[]});
   } else if (message.type === 'capture') {

@@ -20,9 +20,9 @@ class Analytics(unittest.TestCase):
         now=datetime.now(timezone.utc).isoformat()
         matches=json.dumps([{'name':'E-mail','severity':'warning'},{'name':'PESEL','severity':'critical'}])
         with app.connect() as db:
-            db.executemany('INSERT INTO events VALUES(?,?,?,?,?,?)',
+            db.executemany('INSERT INTO events(id,received_at,provider,prompt,matches,endpoint_id) VALUES(?,?,?,?,?,?)',
                 [(f'a-{i}',now,'chatgpt','DANE ŻÓŁĆ',matches,self.endpoint) for i in range(1200)])
-            db.executemany('INSERT INTO events VALUES(?,?,?,?,?,?)',
+            db.executemany('INSERT INTO events(id,received_at,provider,prompt,matches,endpoint_id) VALUES(?,?,?,?,?,?)',
                 [(f'b-{i}',now,'claude','no matches','[]',None) for i in range(50)])
             query={'group':['Finanse'],'q':['żółć'],'range':['24h']}
             events=filtered_events(db,query)

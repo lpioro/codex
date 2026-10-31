@@ -21,7 +21,7 @@
 <button class="nav-item" data-view="endpoints"><span aria-hidden="true">▣</span> Endpointy</button>
 <button class="nav-item" data-view="groups"><span aria-hidden="true">▦</span> Grupy</button>
 <button class="nav-item" data-view="rules"><span aria-hidden="true">⌘</span> Reguły wykrywania</button>
-</nav><div class="sidebar-bottom"><span class="status-dot"></span> Własna baza · własne dane<p class="small text-body-secondary mt-2">Reguły obserwują prompty. Nie blokują ich wysyłania.</p><button id="logout" class="btn btn-sm btn-outline-secondary w-100">Wyloguj</button></div></aside>
+</nav><div class="sidebar-bottom"><span class="status-dot"></span> Własna baza · własne dane<p class="small text-body-secondary mt-2">Krytyczne reguły mogą zatrzymywać wysyłkę w chronionych wtyczkach.</p><button id="logout" class="btn btn-sm btn-outline-secondary w-100">Wyloguj</button></div></aside>
 <main class="main-content">
 <div class="breadcrumb-line">Workspace <span>/</span> <span id="view-crumb">Przegląd</span></div>
 <div class="page-heading"><div><p class="eyebrow">WALLEEGUARD / AI OBSERVABILITY</p><h1 id="view-title">Przegląd bezpieczeństwa</h1><p id="view-description">Aktywność, sygnały i kondycja Twoich instalacji w jednym miejscu.</p></div>
@@ -31,13 +31,13 @@
 <div><label for="endpoint-filter">Endpoint</label><select id="endpoint-filter" class="form-select"><option value="">Wszystkie endpointy</option></select></div>
 <div><label for="provider">Dostawca AI</label><select id="provider" class="form-select"><option value="">Wszyscy dostawcy</option><option>chatgpt</option><option>claude</option><option>gemini</option></select></div>
 <div><label for="severity">Ważność</label><select id="severity" class="form-select"><option value="">Wszystkie poziomy</option><option>info</option><option>warning</option><option>critical</option></select></div>
-<button id="reset-filters" class="btn btn-link">Wyczyść</button></div>
+<div><label for="action-filter">Decyzja ochrony</label><select id="action-filter" class="form-select"><option value="">Wszystkie decyzje</option><option value="blocked">Zablokowane próby</option><option value="allowed">Dozwolone przez politykę</option><option value="observed">Tylko obserwowane</option></select></div><button id="reset-filters" class="btn btn-link">Wyczyść</button></div>
 <p id="error" class="text-danger small" role="alert"></p><div class="scope-line"><span><span class="status-dot"></span> <span id="scope-label">Ładowanie danych…</span></span><span id="updated-at">—</span></div>
 <section id="panel-overview" class="view-panel">
 <div class="metrics-grid">
 <div class="metric"><span>Wszystkie prompty</span><strong id="total">0</strong><small>W wybranym zakresie i filtrach</small><div class="metric-decoration blue"></div></div>
 <div class="metric"><span>Prompty z alertem</span><strong id="flagged">0</strong><small id="alert-rate">0% ruchu</small><div class="metric-decoration orange"></div></div>
-<div class="metric"><span>Alerty krytyczne</span><strong id="critical-total">0</strong><small>Najwyższy poziom zdarzenia</small><div class="metric-decoration red"></div></div>
+<div class="metric"><span>Alerty krytyczne</span><strong id="critical-total">0</strong><small><span id="blocked-total">0</span> zatrzymanych przez wtyczkę</small><div class="metric-decoration red"></div></div>
 <div class="metric"><span>Endpointy w ruchu</span><strong id="endpoint-total">0</strong><small><span id="rule-count">0</span> aktywnych reguł globalnych</small><div class="metric-decoration green"></div></div>
 </div>
 <div class="chart-grid"><section class="card"><div class="card-header d-flex justify-content-between"><div>Aktywność promptów <small>Ruch i zdarzenia z dopasowaniem reguł</small></div><span class="chart-key"><i class="key-blue"></i> Prompty <i class="key-orange"></i> Alerty</span></div><div id="activity-chart" class="chart-area" aria-live="polite"></div></section>
@@ -57,7 +57,7 @@
 <div id="endpoint-secret" class="alert alert-warning mt-3" hidden><label for="endpoint-token" class="form-label">Token wyświetlany tylko teraz — wpisz go w jednej instalacji wtyczki.</label><input id="endpoint-token" type="password" class="form-control" readonly autocomplete="off"><div class="mt-2 d-flex gap-2"><button id="copy-endpoint-token" class="btn btn-sm btn-primary">Kopiuj token</button><button id="hide-endpoint-token" class="btn btn-sm btn-outline-secondary">Ukryj i usuń z widoku</button></div><p id="endpoint-pairing" class="small mt-2 mb-0"></p></div>
 <div id="endpoints" class="mt-3"></div></div></section></section>
 <section id="panel-groups" class="view-panel" hidden><div class="card mb-4"><div class="card-header">Grupy urządzeń <small>Organizuj instalacje według zespołów i środowisk</small></div><div class="card-body"><form id="group-form" class="d-flex gap-2"><input id="group-id" type="hidden"><input id="group-name" class="form-control" placeholder="np. Finanse" required maxlength="100" aria-label="Nazwa grupy"><button id="save-group" class="btn btn-primary">Dodaj grupę</button><button id="cancel-group" type="button" class="btn btn-outline-secondary">Anuluj</button></form></div></div><div id="groups-list" class="groups-grid"></div><datalist id="group-options"></datalist></section>
-<section id="panel-rules" class="view-panel" hidden><div class="rule-layout"><div><section class="card"><div class="card-body p-4"><p class="eyebrow">CZUJNOŚĆ WEDŁUG TWOICH ZASAD</p><h2 class="h5">Reguły wykrywania</h2><p class="small text-body-secondary">Wybierz gotowy detektor lub zbuduj regułę tekstową. Wyniki dotyczą nowych zdarzeń; reguły nie blokują wysyłania ani nie maskują danych.</p>
+<section id="panel-rules" class="view-panel" hidden><div class="rule-layout"><div><section class="card"><div class="card-body p-4"><p class="eyebrow">CZUJNOŚĆ WEDŁUG TWOICH ZASAD</p><h2 class="h5">Reguły wykrywania</h2><p class="small text-body-secondary">Wybierz gotowy detektor lub zbuduj regułę tekstową. Krytyczne reguły zatrzymują wysyłkę, gdy wtyczka ma włączone blokowanie. Wyniki logów dotyczą nowych zdarzeń.</p>
 <div class="d-flex gap-2 mb-3"><button id="template-email" class="btn btn-sm btn-outline-secondary">+ E-mail</button><button id="template-pesel" class="btn btn-sm btn-outline-secondary">+ PESEL</button></div>
 <form id="rule" class="d-grid gap-2">
 <input id="rule-id" type="hidden">
