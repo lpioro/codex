@@ -1,0 +1,22 @@
+services:
+  observatory:
+    extends:
+      file: compose.yaml
+      service: observatory
+    environment:
+      PROMPT_DB: /data/walleeguard-demo.sqlite3
+    ports: !override
+      - "127.0.0.1:${DEMO_PORT:-8788}:8787"
+    volumes:
+      - demo-prompts:/data
+    command:
+      - sh
+      - -c
+      - >-
+        if [ ! -f /data/walleeguard-demo.sqlite3 ]; then
+          python -m server.demo --output /data/walleeguard-demo.sqlite3 || exit 1;
+        fi;
+        exec python -m server.app
+
+volumes:
+  demo-prompts:

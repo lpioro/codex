@@ -154,3 +154,29 @@ git push origin v0.2.0
 ```
 
 Lokalna paczka i suma kontrolna powstają w ignorowanym katalogu dist. W ZIP-ie znajduje się manifest i cztery jawnie wskazane pliki wtyczki; baza i sekrety nie są dołączane. Zawartość archiwum jest powtarzalna dla tych samych źródeł. W razie błędu wersji publikacja zatrzymuje się przed wysłaniem obrazu i utworzeniem Release. Status publikacji sprawdzaj w zakładce Actions repozytorium; sam tag nie dowodzi gotowości paczek.
+
+## Baza demonstracyjna
+
+```bash
+python3 -m server.demo
+# Uruchom z tokenem ustawionym zgodnie z instrukcją lokalną:
+PROMPT_DB=data/walleeguard-demo.sqlite3 python3 -m server.app
+```
+
+Tworzy osobny plik data/walleeguard-demo.sqlite3: **8 reguł (7 aktywnych) i 16 promptów** z trzech dostawców, z datami z ostatnich 8 godzin. Przykłady obejmują e-mail, PESEL, poufny dokument, dane logowania, próbę nadpisania instrukcji, SQL, umowę i wyłączoną regułę telefonu. Są również prompty bez alarmu, numery z błędną sumą kontrolną i zdarzenia z wieloma dopasowaniami. Reguła instrukcji jest prostym dopasowaniem tekstu, a nie kompletną detekcją prompt injection.
+
+Wszystkie treści mają znacznik [DEMO], adresy używają domen example.com/example.org, a dane logowania są fikcyjne. Poprawny numer PESEL jest syntetycznym przykładem walidacji — nie ma gwarancji, że nie został komuś nadany. Nie łącz tych treści z rzeczywistą tożsamością.
+
+Workflow pakowania dołącza gotowy plik walleeguard-demo.sqlite3 do artefaktów i przyszłych GitHub Releases. Źródła znajdują się w server/demo_data.json, wraz z oczekiwanymi dopasowaniami każdego promptu. Generator sprawdza wyniki przez rzeczywisty silnik reguł. Nigdy nie nadpisuje istniejącego pliku, także pustego; dla kolejnej kopii podaj np. --output data/demo-2.sqlite3. Właściwa baza prompts.sqlite3 nie jest zmieniana. Demo nie zawiera tokenów.
+
+### Demo w Docker Compose
+
+Po ustawieniu PROMPT_TOKEN w .env:
+
+```bash
+docker compose -p walleeguard-demo -f compose.demo.yaml up -d --build
+# Dashboard demo jest na lokalnym porcie 8788.
+docker compose -p walleeguard-demo -f compose.demo.yaml down
+```
+
+Wymaga Compose 2.24.4+ (tag !override). Demo używa osobnego wolumenu demo-prompts i portu 8788, więc może działać równolegle z właściwą aplikacją. DEMO_PORT pozwala zmienić port. Przy pierwszym starcie baza jest tworzona automatycznie; restarty zachowują zmiany reguł i nowe zdarzenia. Usunięcie danych demo wymaga świadomego użycia down -v z tym samym projektem i plikiem. Aby po pobraniu gotowego obrazu uruchomić demo bez budowania, ustaw PROMPT_IMAGE i użyj up -d --no-build.
