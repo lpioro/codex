@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="pl"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Prompt Observatory</title><link rel="stylesheet" href="/style.css">
+<header><span class="logo">◈</span><div><h1>Prompt Observatory</h1><p>Prompty, kontekst i sygnały z Twojej przeglądarki</p></div><span id="status">Rozłączono</span></header>
+<main>
+<section id="login"><h2>Połącz z kolektorem</h2><form id="auth"><input id="token" type="password" placeholder="Token API" required autocomplete="off"><button>Połącz</button></form><p>Token pozostaje wyłącznie w pamięci tej karty.</p></section>
+<div id="workspace" hidden>
+<div class="toolbar"><h2>Strumień zdarzeń</h2><button id="refresh">Odśwież</button><button id="logout">Rozłącz</button></div>
+<div class="filters"><input id="search" placeholder="Szukaj w promptach…"><select id="provider"><option value="">Wszyscy dostawcy</option><option>chatgpt</option><option>claude</option><option>gemini</option></select><select id="severity"><option value="">Wszystkie poziomy</option><option>info</option><option>warning</option><option>critical</option></select></div>
+<p id="count"></p><div id="events"></div>
+<section><h2>Reguły wykrywania</h2><p>Dopasowanie fragmentu tekstu bez rozróżniania wielkości liter. Reguły działają dla nowych zdarzeń.</p>
+<form id="rule"><input name="name" placeholder="Nazwa reguły" required maxlength="100"><input name="contains" placeholder="Szukany fragment" required maxlength="500"><select name="severity"><option>info</option><option>warning</option><option>critical</option></select><button>Dodaj regułę</button></form><div id="rules"></div></section>
+</div><p id="error" role="alert"></p>
+</main><script src="/app.js"></script></html>
