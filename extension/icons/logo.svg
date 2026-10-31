@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="WalleeGuard — robot w tarczy">
+<defs><linearGradient id="shield" x2="0" y2="1"><stop stop-color="#27394c"/><stop offset="1" stop-color="#0c1928"/></linearGradient><linearGradient id="body" x2="0" y2="1"><stop stop-color="#ffdb74"/><stop offset="1" stop-color="#dfa22e"/></linearGradient></defs>
+<path d="M64 4 115 23v39c0 28-22 48-51 62C35 110 13 90 13 62V23Z" fill="url(#shield)" stroke="#ffc95e" stroke-width="5" stroke-linejoin="round"/>
+<path d="M64 15 104 30v31c0 23-17 40-40 52-23-12-40-29-40-52V30Z" fill="none" stroke="#52637a" stroke-width="1.5"/>
+<path d="M60 51h8v20h-8z" fill="#b5bfcb"/>
+<rect x="34" y="69" width="60" height="30" rx="7" fill="#142032"/>
+<rect x="40" y="65" width="48" height="33" rx="5" fill="url(#body)"/>
+<path d="M44 78h40M46 84h15m-15 5h15" stroke="#9e7225" stroke-width="2"/>
+<circle cx="78" cy="86" r="4" fill="#1d7167"/>
+<path d="m34 76-9 9m69-9 9 9" stroke="#ffc95e" stroke-width="6" stroke-linecap="round"/>
+<path d="M29 38q0-9 12-9h15l8 10 8-10h15q12 0 12 9v10q0 10-12 10H74L64 48 54 58H41q-12 0-12-10Z" fill="#dce4e9" stroke="#172435" stroke-width="3"/>
+<circle cx="45" cy="44" r="11" fill="#142235"/><circle cx="83" cy="44" r="11" fill="#142235"/>
+<circle cx="45" cy="44" r="7" fill="#568694"/><circle cx="83" cy="44" r="7" fill="#568694"/>
+<circle cx="47" cy="42" r="3" fill="#e5ffff"/><circle cx="85" cy="42" r="3" fill="#e5ffff"/>
+<path d="M36 98h56" stroke="#ffc95e" stroke-width="3" stroke-linecap="round"/>
+</svg>

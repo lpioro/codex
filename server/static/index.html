@@ -1,13 +1,53 @@
 <!doctype html>
-<html lang="pl"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Prompt Observatory</title><link rel="stylesheet" href="/style.css">
-<header><span class="logo">◈</span><div><h1>Prompt Observatory</h1><p>Prompty, kontekst i sygnały z Twojej przeglądarki</p></div><span id="status">Rozłączono</span></header>
-<main>
-<section id="login"><h2>Połącz z kolektorem</h2><form id="auth"><input id="token" type="password" placeholder="Token API" required autocomplete="off"><button>Połącz</button></form><p>Token pozostaje wyłącznie w pamięci tej karty.</p></section>
+<html lang="pl" data-bs-theme="dark">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WalleeGuard — obserwowalność promptów</title>
+<link rel="icon" href="/logo.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/vendor/bootstrap.min.css"><link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="border-bottom">
+<div class="container-xl py-4 d-flex gap-3 align-items-center">
+<img class="brand-logo" src="/logo.svg" width="72" height="72" alt="WalleeGuard — robot w tarczy">
+<div><p class="eyebrow mb-1">TWÓJ STRAŻNIK PROMPTÓW</p><h1 class="h3 fw-bold mb-1">Wallee<span class="brand-accent">Guard</span></h1><p class="text-body-secondary small mb-0">Obserwuj rozmowy. Rozpoznawaj sygnały.</p></div>
+<span id="status" class="badge rounded-pill connection-status ms-auto">Rozłączono</span>
+</div>
+</header>
+<main class="container-xl py-4 py-lg-5">
+<section id="login" class="card login-card mx-auto">
+<div class="card-body p-4 p-lg-5">
+<div class="d-flex align-items-center gap-3 mb-4"><img src="/logo.svg" width="48" height="48" alt=""><div><span class="eyebrow">PRYWATNY KOLEKTOR</span><h2 class="h4 mb-0 mt-1">Wejdź na swój posterunek</h2></div></div>
+<p class="text-body-secondary mb-4">Połącz się z bazą promptów, aby przeglądać zdarzenia i zarządzać regułami wykrywania.</p>
+<form id="auth"><label for="token" class="form-label">Token API</label><input id="token" class="form-control form-control-lg mb-3" type="password" placeholder="Wprowadź token kolektora" required autocomplete="off"><button class="btn btn-primary btn-lg w-100">Połącz z kolektorem <span aria-hidden="true">→</span></button></form>
+<p class="small text-body-secondary mt-3 mb-0">Token pozostaje wyłącznie w pamięci tej karty.</p>
+</div></section>
 <div id="workspace" hidden>
-<div class="toolbar"><h2>Strumień zdarzeń</h2><button id="refresh">Odśwież</button><button id="logout">Rozłącz</button></div>
-<div class="filters"><input id="search" placeholder="Szukaj w promptach…"><select id="provider"><option value="">Wszyscy dostawcy</option><option>chatgpt</option><option>claude</option><option>gemini</option></select><select id="severity"><option value="">Wszystkie poziomy</option><option>info</option><option>warning</option><option>critical</option></select></div>
-<p id="count"></p><div id="events"></div>
-<section><h2>Reguły wykrywania</h2><p>Dopasowanie fragmentu tekstu bez rozróżniania wielkości liter. Reguły działają dla nowych zdarzeń.</p>
-<form id="rule"><input name="name" placeholder="Nazwa reguły" required maxlength="100"><input name="contains" placeholder="Szukany fragment" required maxlength="500"><select name="severity"><option>info</option><option>warning</option><option>critical</option></select><button>Dodaj regułę</button></form><div id="rules"></div></section>
-</div><p id="error" role="alert"></p>
-</main><script src="/app.js"></script></html>
+<div class="d-flex flex-wrap align-items-center gap-2 mb-4"><div class="me-auto"><p class="eyebrow mb-1">OBSERWOWALNOŚĆ AI</p><h2 class="h3 mb-0">Strumień zdarzeń</h2></div><button id="refresh" class="btn btn-primary">Odśwież</button><button id="logout" class="btn btn-outline-secondary">Rozłącz</button></div>
+<div class="row g-3 mb-4" aria-label="Podsumowanie widoku">
+<div class="col-12 col-md-4"><div class="card stat-card h-100"><div class="card-body"><p class="text-body-secondary small mb-2">ZDARZENIA W WIDOKU</p><strong id="total" class="display-6">0</strong></div></div></div>
+<div class="col-6 col-md-4"><div class="card stat-card h-100"><div class="card-body"><p class="text-body-secondary small mb-2">Z DOPASOWANIEM REGUŁY</p><strong id="flagged" class="display-6 brand-accent">0</strong></div></div></div>
+<div class="col-6 col-md-4"><div class="card stat-card h-100"><div class="card-body"><p class="text-body-secondary small mb-2">AKTYWNE REGUŁY</p><strong id="rule-count" class="display-6">0</strong></div></div></div>
+</div>
+<div class="row g-4">
+<div class="col-12 col-lg-8">
+<div class="card mb-3"><div class="card-body"><div class="row g-2">
+<div class="col-12"><label for="search" class="form-label small">Szukaj promptu</label><input id="search" class="form-control" placeholder="Wpisz fragment i naciśnij Enter…"></div>
+<div class="col-sm-6"><label for="provider" class="form-label small">Dostawca</label><select id="provider" class="form-select"><option value="">Wszyscy dostawcy</option><option>chatgpt</option><option>claude</option><option>gemini</option></select></div>
+<div class="col-sm-6"><label for="severity" class="form-label small">Poziom sygnału</label><select id="severity" class="form-select"><option value="">Wszystkie poziomy</option><option>info</option><option>warning</option><option>critical</option></select></div>
+</div></div></div>
+<p id="count" class="small text-body-secondary"></p><div id="events" aria-live="polite"></div>
+</div>
+<aside class="col-12 col-lg-4">
+<section class="card"><div class="card-body p-4"><p class="eyebrow">CZUJNOŚĆ WEDŁUG TWOICH ZASAD</p><h2 class="h5">Reguły wykrywania</h2><p class="small text-body-secondary">Szukaj fragmentu tekstu bez rozróżniania wielkości liter. Reguły działają dla nowych zdarzeń.</p>
+<form id="rule" class="d-grid gap-2">
+<label for="rule-name" class="form-label mb-0 small">Nazwa reguły</label><input id="rule-name" class="form-control" name="name" placeholder="np. Dane poufne" required maxlength="100">
+<label for="rule-text" class="form-label mb-0 small mt-1">Szukany fragment</label><input id="rule-text" class="form-control" name="contains" placeholder="np. hasło" required maxlength="500">
+<label for="rule-severity" class="form-label mb-0 small mt-1">Poziom ważności</label><select id="rule-severity" class="form-select" name="severity"><option>info</option><option>warning</option><option>critical</option></select><button class="btn btn-primary mt-2">Dodaj regułę</button></form>
+<div id="rules" class="mt-4"></div></div></section>
+</aside></div>
+</div>
+<p id="error" class="text-danger mt-3" role="alert"></p>
+<footer class="small text-body-secondary mt-5 pt-3 border-top d-flex flex-wrap gap-2 justify-content-between"><span>WalleeGuard · Twój kontekst pod kontrolą.</span><span>Twoja przeglądarka. Twoja baza.</span></footer>
+</main><script src="/app.js"></script>
+</body></html>

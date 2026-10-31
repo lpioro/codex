@@ -60,9 +60,16 @@ class API(unittest.TestCase):
 
     def test_dashboard(self):
         with urlopen(self.url + '/') as response:
-            self.assertIn(b'Prompt Observatory', response.read())
+            self.assertIn(b'Wallee', response.read())
             self.assertIn("frame-ancestors 'none'", response.headers['Content-Security-Policy'])
         self.assertEqual(self.request('/health', token=False), {'status':'ok'})
+        for path, content_type, marker in [
+            ('/vendor/bootstrap.min.css', 'text/css', b'v5.3.3'),
+            ('/logo.svg', 'image/svg+xml', b'<svg'),
+        ]:
+            with urlopen(self.url + path) as response:
+                self.assertEqual(response.headers.get_content_type(), content_type)
+                self.assertTrue(marker in response.read(), path)
 
 
 if __name__ == '__main__':

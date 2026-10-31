@@ -96,13 +96,13 @@ class Handler(BaseHTTPRequestHandler):
                         items.append(item)
                     return self.send(200, items)
             return self.send(404, {'error': 'Not found'})
-        files = {'/': 'index.html', '/app.js': 'app.js', '/style.css': 'style.css'}
+        files = {'/': 'index.html', '/app.js': 'app.js', '/style.css': 'style.css', '/logo.svg': 'logo.svg', '/vendor/bootstrap.min.css': 'vendor/bootstrap.min.css'}
         if url.path not in files:
             return self.send(404, {'error': 'Not found'})
         filename = files[url.path]
         body = (STATIC / filename).read_bytes()
         self.send_response(200)
-        self.send_header('Content-Type', {'html': 'text/html; charset=utf-8', 'js': 'text/javascript', 'css': 'text/css'}[filename.split('.')[-1]])
+        self.send_header('Content-Type', {'html': 'text/html; charset=utf-8', 'js': 'text/javascript', 'css': 'text/css', 'svg': 'image/svg+xml'}[filename.split('.')[-1]])
         self.send_header('Content-Security-Policy', "default-src 'self'; frame-ancestors 'none'; base-uri 'none'")
         self.send_header('X-Content-Type-Options', 'nosniff')
         self.send_header('Content-Length', str(len(body)))

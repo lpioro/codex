@@ -1,16 +1,46 @@
 {
   "manifest_version": 3,
-  "name": "Prompt Observatory",
-  "version": "0.1.0",
-  "description": "Opt-in prompt logging for ChatGPT, Claude and Gemini.",
-  "permissions": ["storage", "alarms"],
-  "optional_host_permissions": ["https://*/*", "http://localhost/*", "http://127.0.0.1/*"],
-  "background": {"service_worker": "background.js"},
+  "name": "WalleeGuard",
+  "version": "0.2.0",
+  "description": "WalleeGuard — prywatny rejestr promptów i reguły obserwowalności AI.",
+  "permissions": [
+    "storage",
+    "alarms"
+  ],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "options_page": "options.html",
-  "action": {"default_title": "Konfiguruj Prompt Observatory"},
-  "content_scripts": [{
-    "matches": ["https://chatgpt.com/*", "https://claude.ai/*", "https://gemini.google.com/*"],
-    "js": ["content.js"],
-    "run_at": "document_idle"
-  }]
+  "action": {
+    "default_title": "Konfiguruj WalleeGuard",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://claude.ai/*",
+        "https://gemini.google.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  }
 }

@@ -1,6 +1,8 @@
-# Prompt Observatory
+# WalleeGuard
 
 Pierwsza wersja prywatnego obserwatorium promptów: wtyczka Chrome MV3 → API Python → SQLite → dashboard. Bez zewnętrznych zależności Pythona. Wymaga Python 3.10+; testowane na 3.12.
+
+Dashboard korzysta z lokalnie dołączonego Bootstrap 5.3.3 (licencja MIT w server/static/vendor/bootstrap.LICENSE). Branding WalleeGuard obejmuje logo SVG z tarczą i robotem oraz ikony Chrome 16/32/48/128 px. Nie wymaga CDN ani zewnętrznych fontów.
 
 ## Lokalnie
 
@@ -118,13 +120,13 @@ Cloudflare, LXC i przechwytywanie na żywych stronach nie są zweryfikowane prze
 
 ## Paczki i GitHub Releases
 
-Workflow `.github/workflows/packages.yml` sprawdza API, JavaScript, paczkę wtyczki i działanie Compose. Pull requesty budują obraz bez publikacji. Push na main publikuje obraz `ghcr.io/lpioro/codex:edge` i tag powiązany z SHA. Tag wydania np. `v0.1.0` publikuje `ghcr.io/lpioro/codex:0.1.0` oraz `latest` dla stabilnej wersji, a następnie tworzy GitHub Release z ZIP-em wtyczki, sumą SHA-256, compose.yaml, .env.example i README. Obecny obraz jest budowany dla linux/amd64.
+Workflow `.github/workflows/packages.yml` sprawdza API, JavaScript, paczkę wtyczki i działanie Compose. Pull requesty budują obraz bez publikacji. Push na main publikuje obraz `ghcr.io/lpioro/codex:edge` i tag powiązany z SHA. Tag wydania np. `v0.2.0` publikuje `ghcr.io/lpioro/codex:0.2.0` oraz `latest` dla stabilnej wersji, a następnie tworzy GitHub Release z ZIP-em wtyczki, sumą SHA-256, compose.yaml, .env.example i README. Obecny obraz jest budowany dla linux/amd64.
 
 Workflow używa wbudowanego GITHUB_TOKEN; nie wymaga dodawania PAT. GitHub Actions musi być włączone, a polityka organizacji musi zezwalać na publikację pakietów. Widoczność pakietu GHCR ustaw w jego ustawieniach: dla pobierania bez logowania musi być publiczny. Przy prywatnym pakiecie odbiorca musi wykonać docker login ghcr.io z uprawnieniem odczytu pakietu. Pierwszy push konfiguracji nie potwierdza jeszcze, że workflow zakończył się sukcesem.
 
 ### Instalacja gotowej wersji bez budowania
 
-Pobierz compose.yaml i .env.example z wybranego GitHub Release do jednego katalogu. Skopiuj .env.example do .env, zabezpiecz go prawami 600, ustaw własny PROMPT_TOKEN i dodaj `PROMPT_IMAGE=ghcr.io/lpioro/codex:0.1.0` (podstaw rzeczywistą opublikowaną wersję). Potem:
+Pobierz compose.yaml i .env.example z wybranego GitHub Release do jednego katalogu. Skopiuj .env.example do .env, zabezpiecz go prawami 600, ustaw własny PROMPT_TOKEN i dodaj `PROMPT_IMAGE=ghcr.io/lpioro/codex:0.2.0` (podstaw rzeczywistą opublikowaną wersję). Potem:
 
 ```bash
 docker compose pull observatory
@@ -141,10 +143,10 @@ ZIP wtyczki rozpakuj do osobnego katalogu. W chrome://extensions wybierz tryb de
 Zaktualizuj version w extension/manifest.json, zatwierdź zmiany i sprawdź workflow. Tag musi zgadzać się z wersją manifestu:
 
 ```bash
-python3 scripts/package_extension.py --version 0.1.0
+python3 scripts/package_extension.py --version 0.2.0
 # Dopiero gdy chcesz opublikować tę wersję:
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.2.0
+git push origin v0.2.0
 ```
 
 Lokalna paczka i suma kontrolna powstają w ignorowanym katalogu dist. W ZIP-ie znajduje się manifest i cztery jawnie wskazane pliki wtyczki; baza i sekrety nie są dołączane. Zawartość archiwum jest powtarzalna dla tych samych źródeł. W razie błędu wersji publikacja zatrzymuje się przed wysłaniem obrazu i utworzeniem Release. Status publikacji sprawdzaj w zakładce Actions repozytorium; sam tag nie dowodzi gotowości paczek.

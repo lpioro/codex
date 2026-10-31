@@ -1,5 +1,6 @@
 import hashlib
 import json
+import struct
 from pathlib import Path
 import tempfile
 import unittest
@@ -18,11 +19,15 @@ class ExtensionPackage(unittest.TestCase):
                              f'{checksum}  {archive.name}\n')
             with zipfile.ZipFile(archive) as bundle:
                 manifest = json.loads(bundle.read('manifest.json'))
-                referenced = [manifest['background']['service_worker'], manifest['options_page']]
+                referenced = [manifest['background']['service_worker'], manifest['options_page'], *manifest['icons'].values(), *manifest['action']['default_icon'].values()]
                 for script in manifest['content_scripts']:
                     referenced.extend(script['js'])
                 self.assertTrue(set(referenced).issubset(bundle.namelist()))
                 self.assertNotIn('.env', bundle.namelist())
+                for size, filename in manifest['icons'].items():
+                    image = bundle.read(filename)
+                    self.assertEqual(image[:8], b'\x89PNG\r\n\x1a\n')
+                    self.assertEqual(struct.unpack('>II', image[16:24]), (int(size), int(size)))
             package(Path(directory))
             self.assertEqual(original, archive.read_bytes())
 
