@@ -10,6 +10,7 @@ from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
+from server.analytics import filtered_events, summarize
 from server.rules import matches as rule_matches, validate_rule
 
 DB = os.environ.get('PROMPT_DB', 'data/prompts.sqlite3')
@@ -22,6 +23,7 @@ PROVIDERS = {'chatgpt', 'claude', 'gemini'}
 def connect():
     db = sqlite3.connect(DB, timeout=20)
     db.row_factory = sqlite3.Row
+    db.create_function("casefold", 1, lambda text: text.casefold(), deterministic=True)
     try:
         with db:
             yield db
@@ -40,6 +42,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS rules (
           id INTEGER PRIMARY KEY, name TEXT NOT NULL, contains TEXT NOT NULL,
           severity TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS groups (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE);
         CREATE TABLE IF NOT EXISTS endpoints (
           id TEXT PRIMARY KEY, name TEXT NOT NULL, group_name TEXT NOT NULL DEFAULT '',
           token_hash TEXT NOT NULL UNIQUE, revoked INTEGER NOT NULL DEFAULT 0,
@@ -50,10 +53,12 @@ def init_db():
             db.execute("ALTER TABLE rules ADD COLUMN type TEXT NOT NULL DEFAULT 'contains'")
         if 'enabled' not in columns:
             db.execute('ALTER TABLE rules ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1')
+        db.execute("INSERT OR IGNORE INTO groups(name) SELECT DISTINCT group_name FROM endpoints WHERE group_name!=''")
         event_columns = {r['name'] for r in db.execute('PRAGMA table_info(events)')}
         if 'endpoint_id' not in event_columns:
             db.execute('ALTER TABLE events ADD COLUMN endpoint_id TEXT')
         db.execute('CREATE INDEX IF NOT EXISTS events_endpoint ON events(endpoint_id, received_at)')
+        db.execute('CREATE INDEX IF NOT EXISTS endpoints_group ON endpoints(group_name)')
 
 
 
@@ -93,6 +98,8 @@ def create_endpoint(data):
     name, group = endpoint_fields(data)
     endpoint_id, token = str(uuid.uuid4()), secrets.token_urlsafe(32)
     with connect() as db:
+        if group:
+            db.execute('INSERT OR IGNORE INTO groups(name) VALUES (?)', (group,))
         db.execute('INSERT INTO endpoints(id,name,group_name,token_hash,created_at) VALUES (?,?,?,?,?)',
                    (endpoint_id, name, group, hashlib.sha256(token.encode()).hexdigest(),
                     datetime.now(timezone.utc).isoformat()))
@@ -142,26 +149,21 @@ class Handler(BaseHTTPRequestHandler):
                     return self.send(200, [dict(row) for row in rows])
                 if url.path == '/api/rules':
                     return self.send(200, [dict(r) for r in db.execute('SELECT * FROM rules ORDER BY id DESC')])
-                if url.path == '/api/events':
+                if url.path == '/api/groups':
+                    rows = db.execute("SELECT g.id,g.name,(SELECT count(*) FROM endpoints e WHERE e.group_name=g.name) AS endpoint_count,"
+                                      "(SELECT count(*) FROM events v JOIN endpoints e ON e.id=v.endpoint_id WHERE e.group_name=g.name) AS event_count "
+                                      "FROM groups g ORDER BY g.name").fetchall()
+                    return self.send(200, [dict(row) for row in rows])
+                if url.path in ('/api/events','/api/analytics'):
                     q = parse_qs(url.query)
-                    endpoint_filter = q.get('endpoint_id', [''])[0]
-                    where = 'WHERE v.endpoint_id IS NULL' if endpoint_filter == 'legacy' else 'WHERE v.endpoint_id=?' if endpoint_filter else ''
-                    rows = db.execute('SELECT v.*,e.name AS endpoint_name,e.group_name AS endpoint_group FROM events v '
-                                      'LEFT JOIN endpoints e ON e.id=v.endpoint_id ' + where +
-                                      ' ORDER BY v.received_at DESC LIMIT 1000',
-                                      (endpoint_filter,) if endpoint_filter and endpoint_filter != 'legacy' else ()).fetchall()
-                    items = []
-                    for row in rows:
-                        item = dict(row)
-                        item['matches'] = json.loads(item['matches'])
-                        if q.get('q', [''])[0].casefold() not in item['prompt'].casefold():
-                            continue
-                        if q.get('provider', [''])[0] not in ('', item['provider']):
-                            continue
-                        if q.get('severity', [''])[0] and not any(m['severity'] == q['severity'][0] for m in item['matches']):
-                            continue
-                        items.append(item)
-                    return self.send(200, items)
+                    if url.path == '/api/analytics': q.setdefault('range',['24h'])
+                    try:
+                        events = filtered_events(db, q, 1000 if url.path == '/api/events' else None)
+                        if url.path == '/api/analytics':
+                            return self.send(200, summarize(events, q.get('range',['24h'])[0]))
+                        return self.send(200, events)
+                    except ValueError:
+                        return self.send(400, {'error':'Invalid filter'})
             return self.send(404, {'error': 'Not found'})
         files = {'/': 'index.html', '/app.js': 'app.js', '/style.css': 'style.css', '/logo.svg': 'logo.svg', '/vendor/bootstrap.min.css': 'vendor/bootstrap.min.css'}
         if url.path not in files:
@@ -212,6 +214,21 @@ class Handler(BaseHTTPRequestHandler):
                 if admin and data.get('endpoint_id'):
                     return self.send(403, {'error': 'Admin ingestion cannot impersonate endpoints'})
                 return self.send(201, ingest(data, identity['id'] if identity else None))
+            if self.path == '/api/groups' or self.path.startswith('/api/groups/'):
+                name, _ = endpoint_fields(data)
+                with connect() as db:
+                    existing = db.execute('SELECT id FROM groups WHERE name=?', (name,)).fetchone()
+                    group_id = int(self.path.rsplit('/',1)[1]) if self.path != '/api/groups' else None
+                    if existing and existing['id'] != group_id:
+                        return self.send(409, {'error':'Group already exists'})
+                    if group_id is None:
+                        group_id = db.execute('INSERT INTO groups(name) VALUES (?)',(name,)).lastrowid
+                    else:
+                        old = db.execute('SELECT name FROM groups WHERE id=?',(group_id,)).fetchone()
+                        if not old: return self.send(404, {'error':'Group not found'})
+                        db.execute('UPDATE endpoints SET group_name=? WHERE group_name=?',(name,old['name']))
+                        db.execute('UPDATE groups SET name=? WHERE id=?',(name,group_id))
+                return self.send(200, {'id':group_id})
             if self.path == '/api/endpoints':
                 return self.send(201, create_endpoint(data))
             if self.path.startswith('/api/endpoints/'):
@@ -224,6 +241,8 @@ class Handler(BaseHTTPRequestHandler):
                         return self.send(404, {'error':'Endpoint not found'})
                     if len(parts) == 3:
                         name, group = endpoint_fields(data)
+                        if group:
+                            db.execute('INSERT OR IGNORE INTO groups(name) VALUES (?)',(group,))
                         db.execute('UPDATE endpoints SET name=?,group_name=? WHERE id=?', (name,group,endpoint_id))
                     elif parts[3] == 'revoke':
                         db.execute('UPDATE endpoints SET revoked=1 WHERE id=?', (endpoint_id,))
@@ -264,6 +283,14 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(401, {'error': 'Unauthorized'})
         try:
             prefix, rule_id = self.path.rsplit('/', 1)
+            if prefix == '/api/groups':
+                with connect() as db:
+                    group = db.execute('SELECT name FROM groups WHERE id=?',(int(rule_id),)).fetchone()
+                    if not group: return self.send(404, {'error':'Group not found'})
+                    if db.execute('SELECT 1 FROM endpoints WHERE group_name=?',(group['name'],)).fetchone():
+                        return self.send(409, {'error':'Move endpoints to another group before deleting'})
+                    db.execute('DELETE FROM groups WHERE id=?',(int(rule_id),))
+                return self.send(200, {'ok':True})
             if prefix != '/api/rules':
                 return self.send(404, {'error': 'Not found'})
             with connect() as db:

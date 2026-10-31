@@ -1,54 +1,63 @@
 <!doctype html>
-<html lang="pl" data-bs-theme="dark">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>WalleeGuard — obserwowalność promptów</title>
-<link rel="icon" href="/logo.svg" type="image/svg+xml">
-<link rel="stylesheet" href="/vendor/bootstrap.min.css"><link rel="stylesheet" href="/style.css">
-</head>
+<html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WalleeGuard — centrum ochrony promptów</title><link rel="icon" href="/logo.svg"><link rel="stylesheet" href="/vendor/bootstrap.min.css"><link rel="stylesheet" href="/style.css"></head>
 <body>
-<header class="border-bottom">
-<div class="container-xl py-4 d-flex gap-3 align-items-center">
-<img class="brand-logo" src="/logo.svg" width="72" height="72" alt="WalleeGuard — robot w tarczy">
-<div><p class="eyebrow mb-1">TWÓJ STRAŻNIK PROMPTÓW</p><h1 class="h3 fw-bold mb-1">Wallee<span class="brand-accent">Guard</span></h1><p class="text-body-secondary small mb-0">Obserwuj rozmowy. Rozpoznawaj sygnały.</p></div>
-<span id="status" class="badge rounded-pill connection-status ms-auto">Rozłączono</span>
-</div>
-</header>
-<main class="container-xl py-4 py-lg-5">
+<header class="topbar"><a class="brand" href="#" aria-label="WalleeGuard"><img src="/logo.svg" width="40" height="40" alt=""><span>Wallee<strong>Guard</strong></span></a><span class="top-divider"></span><span class="small text-body-secondary d-none d-sm-block">Centrum ochrony promptów</span><span id="status" class="connection-status ms-auto">Rozłączono</span></header>
 <section id="login" class="card login-card mx-auto">
 <div class="card-body p-4 p-lg-5">
 <div class="d-flex align-items-center gap-3 mb-4"><img src="/logo.svg" width="48" height="48" alt=""><div><span class="eyebrow">PRYWATNY KOLEKTOR</span><h2 class="h4 mb-0 mt-1">Wejdź na swój posterunek</h2></div></div>
 <p class="text-body-secondary mb-4">Połącz się z bazą promptów, aby przeglądać zdarzenia i zarządzać regułami wykrywania.</p>
 <form id="auth"><label for="token" class="form-label">Token API</label><input id="token" class="form-control form-control-lg mb-3" type="password" placeholder="Wprowadź token kolektora" required autocomplete="off"><button class="btn btn-primary btn-lg w-100">Połącz z kolektorem <span aria-hidden="true">→</span></button></form>
-<p class="small text-body-secondary mt-3 mb-0">Token pozostaje wyłącznie w pamięci tej karty.</p>
+<p id="login-error" class="text-danger small" role="alert"></p><p class="small text-body-secondary mt-3 mb-0">Token pozostaje wyłącznie w pamięci tej karty.</p>
 </div></section>
-<div id="workspace" hidden>
-<div class="d-flex flex-wrap align-items-center gap-2 mb-4"><div class="me-auto"><p class="eyebrow mb-1">OBSERWOWALNOŚĆ AI</p><h2 class="h3 mb-0">Strumień zdarzeń</h2></div><button id="refresh" class="btn btn-primary">Odśwież</button><button id="logout" class="btn btn-outline-secondary">Rozłącz</button></div>
-<div class="row g-3 mb-4" aria-label="Podsumowanie widoku">
-<div class="col-12 col-md-4"><div class="card stat-card h-100"><div class="card-body"><p class="text-body-secondary small mb-2">ZDARZENIA W WIDOKU</p><strong id="total" class="display-6">0</strong></div></div></div>
-<div class="col-6 col-md-4"><div class="card stat-card h-100"><div class="card-body"><p class="text-body-secondary small mb-2">Z DOPASOWANIEM REGUŁY</p><strong id="flagged" class="display-6 brand-accent">0</strong></div></div></div>
-<div class="col-6 col-md-4"><div class="card stat-card h-100"><div class="card-body"><p class="text-body-secondary small mb-2">AKTYWNE REGUŁY</p><strong id="rule-count" class="display-6">0</strong></div></div></div>
+
+<div id="workspace" class="app-shell" hidden>
+<aside class="sidebar"><div class="workspace-label"><span class="workspace-avatar">W</span><div><strong>Twoja organizacja</strong><small>Prywatny kolektor AI</small></div></div>
+<p class="nav-label">WORKSPACE</p><nav aria-label="Menu główne">
+<button class="nav-item active" data-view="overview"><span aria-hidden="true">◫</span> Przegląd</button>
+<button class="nav-item" data-view="events"><span aria-hidden="true">≡</span> Zdarzenia <span id="nav-events" class="nav-count">0</span></button>
+<button class="nav-item" data-view="alerts"><span aria-hidden="true">◇</span> Alerty <span id="nav-alerts" class="nav-count orange">0</span></button>
+<p class="nav-label mt-4">ZARZĄDZANIE</p>
+<button class="nav-item" data-view="endpoints"><span aria-hidden="true">▣</span> Endpointy</button>
+<button class="nav-item" data-view="groups"><span aria-hidden="true">▦</span> Grupy</button>
+<button class="nav-item" data-view="rules"><span aria-hidden="true">⌘</span> Reguły wykrywania</button>
+</nav><div class="sidebar-bottom"><span class="status-dot"></span> Własna baza · własne dane<p class="small text-body-secondary mt-2">Reguły obserwują prompty. Nie blokują ich wysyłania.</p><button id="logout" class="btn btn-sm btn-outline-secondary w-100">Wyloguj</button></div></aside>
+<main class="main-content">
+<div class="breadcrumb-line">Workspace <span>/</span> <span id="view-crumb">Przegląd</span></div>
+<div class="page-heading"><div><p class="eyebrow">WALLEEGUARD / AI OBSERVABILITY</p><h1 id="view-title">Przegląd bezpieczeństwa</h1><p id="view-description">Aktywność, sygnały i kondycja Twoich instalacji w jednym miejscu.</p></div>
+<div class="refresh-controls"><label class="small text-body-secondary"><input id="auto-refresh" type="checkbox" checked> Auto · 30 s</label><button id="refresh" class="btn btn-outline-secondary">↻ Odśwież</button></div></div>
+<div class="filter-bar"><div><label for="time-filter">Zakres czasu</label><select id="time-filter" class="form-select"><option value="1h">Ostatnia godzina</option><option value="24h" selected>Ostatnie 24 godziny</option><option value="7d">Ostatnie 7 dni</option><option value="30d">Ostatnie 30 dni</option><option value="all">Cała historia</option></select></div>
+<div><label for="group-filter">Grupa</label><select id="group-filter" class="form-select"><option value="">Wszystkie grupy</option></select></div>
+<div><label for="endpoint-filter">Endpoint</label><select id="endpoint-filter" class="form-select"><option value="">Wszystkie endpointy</option></select></div>
+<div><label for="provider">Dostawca AI</label><select id="provider" class="form-select"><option value="">Wszyscy dostawcy</option><option>chatgpt</option><option>claude</option><option>gemini</option></select></div>
+<div><label for="severity">Ważność</label><select id="severity" class="form-select"><option value="">Wszystkie poziomy</option><option>info</option><option>warning</option><option>critical</option></select></div>
+<button id="reset-filters" class="btn btn-link">Wyczyść</button></div>
+<p id="error" class="text-danger small" role="alert"></p><div class="scope-line"><span><span class="status-dot"></span> <span id="scope-label">Ładowanie danych…</span></span><span id="updated-at">—</span></div>
+<section id="panel-overview" class="view-panel">
+<div class="metrics-grid">
+<div class="metric"><span>Wszystkie prompty</span><strong id="total">0</strong><small>W wybranym zakresie i filtrach</small><div class="metric-decoration blue"></div></div>
+<div class="metric"><span>Prompty z alertem</span><strong id="flagged">0</strong><small id="alert-rate">0% ruchu</small><div class="metric-decoration orange"></div></div>
+<div class="metric"><span>Alerty krytyczne</span><strong id="critical-total">0</strong><small>Najwyższy poziom zdarzenia</small><div class="metric-decoration red"></div></div>
+<div class="metric"><span>Endpointy w ruchu</span><strong id="endpoint-total">0</strong><small><span id="rule-count">0</span> aktywnych reguł globalnych</small><div class="metric-decoration green"></div></div>
 </div>
-<details class="card mb-4"><summary class="card-header p-3">Endpointy — instalacje wtyczki</summary><div class="card-body">
+<div class="chart-grid"><section class="card"><div class="card-header d-flex justify-content-between"><div>Aktywność promptów <small>Ruch i zdarzenia z dopasowaniem reguł</small></div><span class="chart-key"><i class="key-blue"></i> Prompty <i class="key-orange"></i> Alerty</span></div><div id="activity-chart" class="chart-area" aria-live="polite"></div></section>
+<section class="card"><div class="card-header">Poziomy alertów <small>Jeden prompt liczony raz, według najwyższej ważności</small></div><div id="severity-chart" class="distribution"></div></section></div>
+<div class="chart-grid equal"><section class="card"><div class="card-header">Dostawcy AI <small>Kliknij, aby przefiltrować ruch</small></div><div id="provider-chart" class="distribution"></div></section>
+<section class="card"><div class="card-header">Najczęstsze sygnały <small>Liczba dopasowań reguł</small></div><div id="top-rules" class="distribution"></div></section></div>
+<section class="card mt-4"><div class="card-header d-flex justify-content-between">Ostatnie sygnały <button class="btn btn-link btn-sm" data-view="alerts">Wszystkie alerty →</button></div><div id="recent-alerts"></div></section>
+</section>
+<section id="panel-alerts" class="view-panel" hidden><section class="card mb-4"><div class="card-header">Alerty w czasie <small>Ważność to najwyższy poziom reguły dla danego promptu</small></div><div id="alert-chart" class="chart-area"></div></section><div id="alerts-list"></div></section>
+<section id="panel-events" class="view-panel" hidden><div class="d-flex flex-wrap gap-3 align-items-center mb-3"><input id="search" class="form-control event-search" placeholder="Szukaj w treści promptu…" aria-label="Szukaj w promptach"><span id="count" class="small text-body-secondary"></span></div><div id="events"></div></section>
+<section id="panel-endpoints" class="view-panel" hidden><section class="card"><div class="card-header">Zarządzanie instalacjami</div><div class="card-body">
 <p class="small text-body-secondary">Jeden endpoint i osobny token dla każdego profilu Chrome. Token administratora służy tylko do dashboardu.</p>
 <form id="endpoint-form" class="row g-2 align-items-end"><input id="endpoint-edit-id" type="hidden">
 <div class="col-md-5"><label for="endpoint-name" class="form-label small">Nazwa urządzenia / profilu</label><input id="endpoint-name" class="form-control" required maxlength="100" placeholder="np. Laptop Anny — Chrome"></div>
-<div class="col-md-4"><label for="endpoint-group" class="form-label small">Grupa / zespół (opcjonalnie)</label><input id="endpoint-group" class="form-control" maxlength="100" placeholder="np. Finanse"></div>
+<div class="col-md-4"><label for="endpoint-group" class="form-label small">Grupa / zespół (opcjonalnie)</label><input list="group-options" id="endpoint-group" class="form-control" maxlength="100" placeholder="np. Finanse"></div>
 <div class="col-md-3 d-flex gap-2"><button id="save-endpoint" class="btn btn-primary">Dodaj</button><button id="reset-endpoint" type="button" class="btn btn-outline-secondary">Anuluj</button></div></form>
 <div id="endpoint-secret" class="alert alert-warning mt-3" hidden><label for="endpoint-token" class="form-label">Token wyświetlany tylko teraz — wpisz go w jednej instalacji wtyczki.</label><input id="endpoint-token" type="password" class="form-control" readonly autocomplete="off"><div class="mt-2 d-flex gap-2"><button id="copy-endpoint-token" class="btn btn-sm btn-primary">Kopiuj token</button><button id="hide-endpoint-token" class="btn btn-sm btn-outline-secondary">Ukryj i usuń z widoku</button></div><p id="endpoint-pairing" class="small mt-2 mb-0"></p></div>
-<div id="endpoints" class="mt-3"></div></div></details>
-<div class="row g-4">
-<div class="col-12 col-lg-8">
-<div class="card mb-3"><div class="card-body"><div class="row g-2">
-<div class="col-12"><label for="search" class="form-label small">Szukaj promptu</label><input id="search" class="form-control" placeholder="Wpisz fragment i naciśnij Enter…"></div>
-<div class="col-12"><label for="endpoint-filter" class="form-label small">Endpoint / instalacja</label><select id="endpoint-filter" class="form-select"><option value="">Wszystkie endpointy</option><option value="legacy">Nieprzypisane / starsze wersje</option></select></div>
-<div class="col-sm-6"><label for="provider" class="form-label small">Dostawca</label><select id="provider" class="form-select"><option value="">Wszyscy dostawcy</option><option>chatgpt</option><option>claude</option><option>gemini</option></select></div>
-<div class="col-sm-6"><label for="severity" class="form-label small">Poziom sygnału</label><select id="severity" class="form-select"><option value="">Wszystkie poziomy</option><option>info</option><option>warning</option><option>critical</option></select></div>
-</div></div></div>
-<p id="count" class="small text-body-secondary"></p><div id="events" aria-live="polite"></div>
-</div>
-<aside class="col-12 col-lg-4">
-<section class="card"><div class="card-body p-4"><p class="eyebrow">CZUJNOŚĆ WEDŁUG TWOICH ZASAD</p><h2 class="h5">Reguły wykrywania</h2><p class="small text-body-secondary">Wybierz gotowy detektor lub zbuduj regułę tekstową. Wyniki dotyczą nowych zdarzeń; reguły nie blokują wysyłania ani nie maskują danych.</p>
+<div id="endpoints" class="mt-3"></div></div></section></section>
+<section id="panel-groups" class="view-panel" hidden><div class="card mb-4"><div class="card-header">Grupy urządzeń <small>Organizuj instalacje według zespołów i środowisk</small></div><div class="card-body"><form id="group-form" class="d-flex gap-2"><input id="group-id" type="hidden"><input id="group-name" class="form-control" placeholder="np. Finanse" required maxlength="100" aria-label="Nazwa grupy"><button id="save-group" class="btn btn-primary">Dodaj grupę</button><button id="cancel-group" type="button" class="btn btn-outline-secondary">Anuluj</button></form></div></div><div id="groups-list" class="groups-grid"></div><datalist id="group-options"></datalist></section>
+<section id="panel-rules" class="view-panel" hidden><div class="rule-layout"><div><section class="card"><div class="card-body p-4"><p class="eyebrow">CZUJNOŚĆ WEDŁUG TWOICH ZASAD</p><h2 class="h5">Reguły wykrywania</h2><p class="small text-body-secondary">Wybierz gotowy detektor lub zbuduj regułę tekstową. Wyniki dotyczą nowych zdarzeń; reguły nie blokują wysyłania ani nie maskują danych.</p>
 <div class="d-flex gap-2 mb-3"><button id="template-email" class="btn btn-sm btn-outline-secondary">+ E-mail</button><button id="template-pesel" class="btn btn-sm btn-outline-secondary">+ PESEL</button></div>
 <form id="rule" class="d-grid gap-2">
 <input id="rule-id" type="hidden">
@@ -60,10 +69,6 @@
 <label for="rule-sample" class="form-label mb-0 small mt-2">Tekst do próby (nie zapisuje zdarzenia)</label><textarea id="rule-sample" class="form-control" rows="3" maxlength="100000" placeholder="Wklej przykładowy tekst…"></textarea>
 <button id="test-rule" type="button" class="btn btn-outline-secondary">Sprawdź dopasowanie</button><p id="test-result" class="small mb-0" role="status"></p>
 <button id="save-rule" class="btn btn-primary mt-2">Zapisz regułę</button><button id="reset-rule" type="button" class="btn btn-sm btn-outline-secondary">Nowa reguła / anuluj</button></form>
-<div id="rules" class="mt-4"></div></div></section>
-</aside></div>
-</div>
-<p id="error" class="text-danger mt-3" role="alert"></p>
-<footer class="small text-body-secondary mt-5 pt-3 border-top d-flex flex-wrap gap-2 justify-content-between"><span>WalleeGuard · Twój kontekst pod kontrolą.</span><span>Twoja przeglądarka. Twoja baza.</span></footer>
-</main><script src="/app.js"></script>
-</body></html>
+</div></section></div><section class="card"><div class="card-header">Zapisane reguły <small>Wspólne dla wszystkich instalacji</small></div><div id="rules" class="card-body"></div></section></div></section>
+<footer>WalleeGuard <span>Twoja przeglądarka. Twoja baza. Twoje zasady.</span></footer>
+</main></div><script src="/app.js"></script></body></html>

@@ -164,7 +164,7 @@ python3 -m server.demo
 PROMPT_DB=data/walleeguard-demo.sqlite3 python3 -m server.app
 ```
 
-Tworzy osobny plik data/walleeguard-demo.sqlite3: **3 endpointy, 8 reguł (7 aktywnych) i 16 promptów** z trzech dostawców, z datami z ostatnich 8 godzin. Przykłady obejmują e-mail, PESEL, poufny dokument, dane logowania, próbę nadpisania instrukcji, SQL, umowę i wyłączoną regułę telefonu. Są również prompty bez alarmu, numery z błędną sumą kontrolną i zdarzenia z wieloma dopasowaniami. Reguła instrukcji jest prostym dopasowaniem tekstu, a nie kompletną detekcją prompt injection.
+Tworzy osobny plik data/walleeguard-demo.sqlite3: **12 endpointów, 5 grup, 14 reguł (13 aktywnych) i 720 promptów** z trzech dostawców, z datami z ostatnich 7 dni i większym ruchem w ostatnich dwóch dniach. Przykłady obejmują e-mail, PESEL, poufny dokument, dane logowania, próbę nadpisania instrukcji, SQL, umowę i wyłączoną regułę telefonu. Są również prompty bez alarmu, numery z błędną sumą kontrolną i zdarzenia z wieloma dopasowaniami. Reguła instrukcji jest prostym dopasowaniem tekstu, a nie kompletną detekcją prompt injection.
 
 Wszystkie treści mają znacznik [DEMO], adresy używają domen example.com/example.org, a dane logowania są fikcyjne. Poprawny numer PESEL jest syntetycznym przykładem walidacji — nie ma gwarancji, że nie został komuś nadany. Nie łącz tych treści z rzeczywistą tożsamością.
 
@@ -209,3 +209,15 @@ Zdarzenia z różnych endpointów mają osobne przestrzenie identyfikatorów, wi
 Nie da się odzyskać nazwy urządzenia ani przypisać starych logów automatycznie — wcześniej nie były zbierane takie dane. Cofnięcie dostępu blokuje kolejne żądania; lokalna kolejka pozostaje w profilu i może zostać usunięta w ustawieniach. Przy rotacji tokena z zaległymi promptami najpierw usuń starą kolejkę albo świadomie wyślij ją przed rotacją. Sparowanie identyfikuje profil, ale skopiowanie całego profilu wraz z tokenem i UUID nie stanowi odrębnej, uwierzytelnionej tożsamości urządzenia.
 
 Dodatkowy test rozszerzenia: node tests/extension_background.test.cjs. Sprawdza stabilność UUID, metadane zdarzeń, kolejkę offline i zabezpieczenie zmiany serwera/tokena; nie zastępuje ręcznej kontroli przechwytywania na stronach dostawców AI.
+
+## Konsola, grupy i wykresy
+
+Dashboard ma jasny układ inspirowany konsolami chmurowymi, z nawigacją po prawej (na telefonie nad treścią): Przegląd, Zdarzenia, Alerty, Endpointy, Grupy i Reguły. Wykresy SVG działają lokalnie bez CDN i bibliotek analitycznych. Bootstrap pozostaje lokalnym arkuszem CSS.
+
+Filtry czasu (1 h / 24 h / 7 dni / 30 dni / cała historia), grupy, endpointu, dostawcy i ważności dotyczą logów i wykresów. W widoku Zdarzenia można też wyszukiwać treść; aktywne wyszukiwanie obowiązuje we wszystkich widokach i jest zaznaczone nad wynikami. Wyczyść resetuje wszystkie filtry. Kliknięcie słupka dostawcy lub ważności ustawia odpowiedni filtr. Dane mogą odświeżać się co 30 sekund, gdy karta jest widoczna; opcję można wyłączyć.
+
+/api/analytics liczy cały przefiltrowany zbiór, podczas gdy /api/events zwraca maksymalnie 1000 wyników po zastosowaniu filtrów. Alert to prompt z co najmniej jednym dopasowaniem. W rozkładzie ważności prompt liczony jest raz, według najwyższego poziomu. Najczęstsze sygnały liczą dopasowania poszczególnych reguł, więc ich suma może być większa niż liczba promptów z alertem. To alerty w dashboardzie; nie są wysyłane powiadomienia zewnętrzne.
+
+Grupy można tworzyć, zmieniać nazwy i usuwać, jeśli są puste. Zmiana nazwy aktualizuje przypisanie endpointów; przynależność historycznych logów odpowiada obecnej grupie urządzenia. Można przypisać grupę podczas edycji endpointu; nowa nazwa automatycznie tworzy grupę. Karty grup pokazują liczbę endpointów i logów z całej historii, niezależnie od filtrów analitycznych. Przycisk Analizuj ruch przechodzi do przeglądu z filtrem grupy. Grupy służą organizacji i filtrowaniu, a nie izolacji uprawnień ani osobnym politykom reguł.
+
+Generator demo tworzy 720 promptów z 12 profili w zespołach Finanse, Inżynieria, HR, QA i Obsługa klienta. Zawiera też przykłady fikcyjnych kluczy API, danych płacowych, zdrowotnych, eksportów i dokumentów finansowych. Można zmienić rozmiar: python3 -m server.demo --output data/demo-large.sqlite3 --events 1440 (minimum liczba scenariuszy źródłowych, maksimum 10000). Istniejące bazy demo nie są automatycznie uzupełniane — utwórz nowy plik lub nowy wolumen, aby zachować dotychczasowe dane.

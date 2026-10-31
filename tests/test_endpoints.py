@@ -97,6 +97,28 @@ class Endpoints(unittest.TestCase):
         self.assertEqual(self.request('/api/endpoints')[0]['revoked'],0)
         self.assertEqual(len(self.request('/api/events')),1)
 
+    def test_groups_and_analytics_permissions(self):
+        endpoint=self.create('Laptop')
+        groups=self.request('/api/groups')
+        self.assertEqual(groups[0]['name'],'QA')
+        group_id=groups[0]['id']
+        self.request('/api/groups',{'name':'Finanse'})
+        self.request('/api/groups',{'name':'Finanse'},status=409)
+        self.request('/api/groups/'+str(group_id),{'name':'Nowy QA'})
+        self.assertEqual(self.request('/api/endpoints')[0]['group_name'],'Nowy QA')
+        self.request('/api/groups',{'name':'Hacked'},endpoint['token'],403)
+        self.request('/api/analytics',token=endpoint['token'],status=401)
+        self.request('/api/events',{'id':'analytics','provider':'chatgpt','prompt':'hello','instance_id':'profile'},endpoint['token'],201)
+        stats=self.request('/api/analytics?group=Nowy%20QA&range=24h')
+        self.assertEqual(stats['total'],1)
+        self.assertEqual(stats['endpoints'],1)
+        self.assertEqual(self.request('/api/analytics?group=Finanse&range=24h')['total'],0)
+        self.request('/api/analytics?range=invalid',status=400)
+        request=Request(self.url+'/api/groups/'+str(group_id),method='DELETE',headers={'Authorization':'Bearer '+app.TOKEN})
+        with self.assertRaises(HTTPError) as error:urlopen(request)
+        self.assertEqual(error.exception.code,409)
+        error.exception.close()
+
     def test_old_database_migration(self):
         legacy=Path(self.tmp.name)/'legacy.sqlite3'
         with sqlite3.connect(legacy) as db:
