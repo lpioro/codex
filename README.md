@@ -212,7 +212,7 @@ Dodatkowy test rozszerzenia: node tests/extension_background.test.cjs. Sprawdza 
 
 ## Konsola, grupy i wykresy
 
-Dashboard ma jasny układ inspirowany konsolami chmurowymi, z nawigacją po prawej (na telefonie nad treścią): Przegląd, Zdarzenia, Alerty, Endpointy, Grupy i Reguły. Wykresy SVG działają lokalnie bez CDN i bibliotek analitycznych. Bootstrap pozostaje lokalnym arkuszem CSS.
+Dashboard ma jasny układ inspirowany konsolami chmurowymi, z nawigacją po lewej (na telefonie nad treścią): Przegląd, Zdarzenia, Alerty, Endpointy, Grupy i Reguły. Wykresy SVG działają lokalnie bez CDN i bibliotek analitycznych. Bootstrap pozostaje lokalnym arkuszem CSS.
 
 Filtry czasu (1 h / 24 h / 7 dni / 30 dni / cała historia), grupy, endpointu, dostawcy i ważności dotyczą logów i wykresów. W widoku Zdarzenia można też wyszukiwać treść; aktywne wyszukiwanie obowiązuje we wszystkich widokach i jest zaznaczone nad wynikami. Wyczyść resetuje wszystkie filtry. Kliknięcie słupka dostawcy lub ważności ustawia odpowiedni filtr. Dane mogą odświeżać się co 30 sekund, gdy karta jest widoczna; opcję można wyłączyć.
 
